@@ -1,0 +1,272 @@
+# FARM Stack Learning Project
+
+A travel destination management application built with **FastAPI, React, MongoDB, and Docker**.
+
+Full CRUD over a REST API, with client and server side validation, cached server state, and error handling at every layer. Built as an individual learning project, structured with practices used in production systems rather than as a tutorial exercise.
+
+> **Status:** functionally complete, local development only. There is no authentication layer and no automated test suite. See [Known limitations](#known-limitations).
+
+**Repository:** <https://github.com/lazardacic/iwc-farm-stack-app>
+
+---
+
+## Contents
+
+- [About](#about)
+- [Tech stack](#tech-stack)
+- [Features](#features)
+- [Getting started](#getting-started)
+- [Project structure](#project-structure)
+- [API reference](#api-reference)
+- [Data model](#data-model)
+- [Configuration](#configuration)
+- [Testing](#testing)
+- [Known limitations](#known-limitations)
+- [Roadmap](#roadmap)
+- [Documentation](#documentation)
+- [License](#license)
+
+---
+
+## About
+
+The application manages travel destination records. Users can list, search, view, create, edit, and delete destinations.
+
+The React frontend talks to the FastAPI REST API over HTTP using Axios. FastAPI validates each request with Pydantic, applies business logic, and reads and writes MongoDB asynchronously through Motor. On the client, TanStack Query owns server state: caching, loading and error states, and cache invalidation after mutations.
+
+The domain is travel destinations, but the architecture is a general purpose CRUD pattern. The same structure applies to a product catalogue, an inventory system, or an admin dashboard.
+
+```
+React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  MongoDB (Docker)
+   :5173                            :8000                    :27017
+```
+
+## Tech stack
+
+**Frontend** — React, TypeScript, Vite, React Router, Axios, TanStack Query, React Hook Form, Zod, Tailwind CSS, React Hot Toast, clsx, React Icons
+
+**Backend** — Python 3.14, FastAPI, Uvicorn, Motor, Pydantic
+
+**Database and tooling** — MongoDB, Docker, Docker Compose
+
+## Features
+
+- Complete CRUD lifecycle over a single `destinations` resource
+- REST API with automatic OpenAPI documentation at `/docs`
+- Client side validation with Zod, authoritative server side validation with Pydantic
+- Server state caching and invalidation with TanStack Query
+- One reusable form component shared by the create and edit pages
+- Client side search
+- Light and dark theme with a persisted preference
+- Skeleton loaders, empty states, and error states
+- Toast notifications on success and failure
+- Responsive layout for desktop, tablet, and mobile
+
+## Getting started
+
+### Prerequisites
+
+- Python 3
+- Node.js and npm
+- Docker and Docker Compose
+
+Three processes run at the same time: the MongoDB container, the FastAPI backend, and the Vite dev server.
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/lazardacic/iwc-farm-stack-app.git
+cd iwc-farm-stack-app
+```
+
+### 2. Start the database
+
+`docker-compose.yml`:
+
+```yaml
+services:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+```
+
+```bash
+docker-compose up -d
+```
+
+MongoDB is now reachable at `mongodb://localhost:27017`.
+
+### 3. Start the backend
+
+```bash
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+# Linux / macOS
+source venv/bin/activate
+
+pip install "fastapi[standard]" motor pymongo
+
+python seed.py          # loads sample destination documents
+
+fastapi dev main.py     # or: uvicorn main:app --reload
+```
+
+The quotes around `"fastapi[standard]"` are required in zsh, which otherwise treats the square brackets as a glob pattern.
+
+- API: `http://localhost:8000`
+- Swagger UI: `http://localhost:8000/docs`
+
+### 4. Start the frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+App: `http://localhost:5173`
+
+### Troubleshooting
+
+If the frontend loads but shows an error state, the backend is usually not running or the database container has stopped. Check with `docker ps`.
+
+## Project structure
+
+```
+src/
+├── api/            axiosClient.ts, destinationsApi.ts
+├── assets/         logo.svg, images/
+├── components/
+│   ├── ui/         Button, Input, Textarea, Card, Badge, Loader, Skeleton,
+│   │               Modal, SearchBar, EmptyState, ErrorState
+│   ├── forms/      DestinationForm.tsx
+│   ├── destination/  DestinationCard.tsx, DestinationCardSkeleton.tsx
+│   └── layout/     Navbar, Footer, MainLayout, ThemeToggle
+├── context/        ThemeContext.tsx
+├── hooks/          useTheme.ts
+├── pages/          Home, DestinationDetails, CreateDestination,
+│                   EditDestination, NotFound, ErrorPage
+├── providers/      QueryProvider.tsx
+├── routes/         AppRoutes.tsx
+├── types/          destination.ts, destinationForm.ts
+├── validation/     destinationSchema.ts
+├── styles/         globals.css
+├── App.tsx
+└── main.tsx
+```
+
+Components never call Axios directly. All HTTP lives in `api/`, which exposes one function per operation. Validation rules live in a single Zod schema in `validation/`.
+
+## API reference
+
+| Method | Endpoint | Description | Success |
+| --- | --- | --- | --- |
+| `GET` | `/destinations` | List all destinations | 200 |
+| `GET` | `/destinations/{id}` | Get one destination | 200 |
+| `POST` | `/destinations` | Create a destination | 201 |
+| `PUT` | `/destinations/{id}` | Update a destination | 200 |
+| `DELETE` | `/destinations/{id}` | Delete a destination | 200 |
+
+**Status codes**
+
+| Code | When |
+| --- | --- |
+| 400 | The supplied id is not a valid `ObjectId` |
+| 404 | Valid id, but no matching document |
+| 422 | Pydantic rejected one or more fields in the body |
+| 500 | Unhandled backend or database error |
+
+400 and 404 are deliberately distinct: a malformed id is a client bug, a valid id with no match usually means the record was deleted elsewhere.
+
+## Data model
+
+A destination is one self contained document. No joins, no transformation layer between the database and the API response.
+
+```json
+{
+  "_id": "685fa3c2e1b40a7d3c9f1e04",
+  "title": "Santorini",
+  "country": "Greece",
+  "description": "Beautiful island in the Aegean Sea.",
+  "image": "https://example.com/images/santorini.jpg",
+  "price": 1499,
+  "rating": 4.8,
+  "featured": true,
+  "tags": ["summer", "island"]
+}
+```
+
+| Field | Type | Required |
+| --- | --- | --- |
+| `_id` | ObjectId | generated, serialized as a string in responses |
+| `title` | string | yes |
+| `country` | string | yes |
+| `description` | string | yes |
+| `image` | string (URL) | yes |
+| `price` | number | yes |
+| `rating` | number (0 to 5) | yes |
+| `featured` | boolean | no |
+| `tags` | string[] | no |
+
+## Configuration
+
+These values are currently defined in code, not in environment variables.
+
+| Value | Setting |
+| --- | --- |
+| MongoDB connection | `mongodb://localhost:27017` |
+| Backend | `http://localhost:8000` |
+| Frontend dev server | `http://localhost:5173` |
+| Query stale time | 5 minutes |
+| Query retry count | 1 |
+
+Running against anything other than localhost currently requires a source edit. Moving these to `MONGODB_URL` on the backend and `VITE_API_URL` on the frontend is a small change and the recommended next step.
+
+## Testing
+
+There is no automated test suite. Verification is manual, through Swagger UI for the backend and the browser for the frontend.
+
+The scenarios covered include the full CRUD cycle, validation failures on both sides, malformed and unknown ids, empty collection and empty search results, backend unavailable, cancelled and confirmed deletes, unknown routes, and theme persistence across reloads. The full scenario list with expected results is in the technical documentation.
+
+## Known limitations
+
+| Limitation | Consequence |
+| --- | --- |
+| No authentication or authorization | Any client that can reach the API has full read and write access |
+| No automated tests | Regressions are only caught by manual re-verification |
+| Configuration hardcoded | Running against a remote database needs a code change |
+| No pagination | `GET /destinations` returns the entire collection |
+| Client side search only | Filtering cost and payload size grow with the collection |
+| No indexes beyond `_id` | Backend filtering would do a full collection scan |
+| Images referenced by URL | The app does not control image availability or size |
+| Local development only | No production build, reverse proxy, or deployment pipeline |
+
+## Roadmap
+
+Ordered by value:
+
+1. **Automated tests** — endpoint tests, validation tests, component tests, one end to end CRUD scenario. Prerequisite for changing anything else safely.
+2. **Environment variables** — small, required before any deployment.
+3. **Authentication** — registration, login, JWT, user and admin roles. The configured Axios client is where the token attaches.
+4. **Pagination and server side filtering** — `?page=1&limit=20`, filtering by country, price range, and rating, backed by an index.
+5. **Image upload** — file upload with cloud storage and optimization, replacing URL references.
+6. **Deployment** — production Compose setup, Nginx reverse proxy, CI/CD.
+
+## Documentation
+
+Full technical documentation, covering architecture, layer responsibilities, the data model, the REST interface, error handling, and the reasoning behind each decision, is in `docs/FARM_Stack_Technical_Documentation.pdf`.
+
+## License
+
+Released under the MIT License. See [LICENSE](LICENSE) for the full text.
+
+---
+
+<!--
+  TODO before publishing:
+  - add screenshots or a short demo GIF near the top
+  - confirm the copyright holder name in LICENSE
+-->

@@ -1,0 +1,101 @@
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# IDE
+# =========================
+.idea/
+*.swp
+*.swo
+
+.vscode/*
+# Uncomment to share editor config with anyone who clones the repo:
+# !.vscode/extensions.json
+# !.vscode/settings.json
+
+# =========================
+# Logs
+# =========================
+*.log
+/logs/
+*.pid
+
+# =========================
+# Environment
+# =========================
+# Leading slash omitted on purpose: .env files must be caught at every depth
+# (root, backend/, frontend/). The negation keeps the committed template.
+.env
+.env.*
+!.env.example
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+/env/
+/ENV/
+
+# Build and packaging artifacts.
+# Anchored to the repository root. Without the leading slash, "build/" also
+# matches a source directory such as frontend/src/components/build/, which
+# would silently drop real code from the repository.
+build/
+*.egg-info/
+.eggs/
+
+# Test and type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+/coverage/
+
+# =========================
+# Node / React
+# =========================
+node_modules/
+dist/
+.npm/
+.pnpm-store/
+
+# Yarn Berry (v2+) keeps files here that MUST be committed. If this project
+# ever moves off npm, replace this line with the entries Yarn documents.
+.yarn/
+
+# =========================
+# TypeScript
+# =========================
+*.tsbuildinfo
+
+# =========================
+# MongoDB
+# =========================
+# Both already anchored to the repository root by the internal slash.
+data/db/
+/dump/
+
+# =========================
+# Docker
+# =========================
+docker-compose.override.yml
+
+# =========================
+# Misc
+# =========================
+*.bak
+*.tmp
+*.temp
+*.orig
+*.rej
