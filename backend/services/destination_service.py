@@ -1,5 +1,4 @@
 from bson import ObjectId
-from database import destination_collection
 
 
 def destination_serializer(destination) -> dict:
@@ -16,17 +15,17 @@ def destination_serializer(destination) -> dict:
     }
 
 
-async def get_all_destinations():
+async def get_all_destinations(collection):
     destinations = []
 
-    async for destination in destination_collection.find():
+    async for destination in collection.find():
         destinations.append(destination_serializer(destination))
 
     return destinations
 
 
-async def get_destination(id: str):
-    destination = await destination_collection.find_one(
+async def get_destination(collection, id: str):
+    destination = await collection.find_one(
         {"_id": ObjectId(id)}
     )
 
@@ -36,31 +35,31 @@ async def get_destination(id: str):
     return None
 
 
-async def create_destination(data: dict):
-    result = await destination_collection.insert_one(data)
+async def create_destination(collection, data: dict):
+    result = await collection.insert_one(data)
 
-    new_destination = await destination_collection.find_one(
+    new_destination = await collection.find_one(
         {"_id": result.inserted_id}
     )
 
     return destination_serializer(new_destination)
 
 
-async def update_destination(id: str, data: dict):
-    await destination_collection.update_one(
+async def update_destination(collection, id: str, data: dict):
+    await collection.update_one(
         {"_id": ObjectId(id)},
-        {"$set": data}
+        {"$set": data},
     )
 
-    updated = await destination_collection.find_one(
+    updated = await collection.find_one(
         {"_id": ObjectId(id)}
     )
 
     return destination_serializer(updated)
 
 
-async def delete_destination(id: str):
-    await destination_collection.delete_one(
+async def delete_destination(collection, id: str):
+    await collection.delete_one(
         {"_id": ObjectId(id)}
     )
 

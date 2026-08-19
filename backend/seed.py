@@ -1,9 +1,7 @@
-# seed.py
-
 import asyncio
 import random
 
-from database import destination_collection
+from database.connection import create_mongo_client, get_database
 
 
 cities = [
@@ -75,11 +73,17 @@ for index in range(99):
 
 
 async def seed_database():
-    await destination_collection.delete_many({})
+    client = create_mongo_client()
+    database = get_database(client)
+    collection = database["destinations"]
 
-    await destination_collection.insert_many(mock_destinations)
+    try:
+        await collection.delete_many({})
+        await collection.insert_many(mock_destinations)
 
-    print("Successfully inserted 99 destinations")
+        print("Successfully inserted 99 destinations")
+    finally:
+        client.close()
 
 
 asyncio.run(seed_database())

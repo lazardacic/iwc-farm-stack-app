@@ -1,9 +1,25 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from database.connection import create_mongo_client, get_database
 from routes.destinations import router as destination_router
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    client = create_mongo_client()
+
+    app.state.mongo_client = client
+    app.state.database = get_database(client)
+
+    yield
+
+    client.close()
+
+
+app = FastAPI(lifespan=lifespan)
 
 origins = [
     "http://localhost:5173",
