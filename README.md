@@ -4,7 +4,7 @@ A travel destination management application built with **FastAPI, React, MongoDB
 
 Full CRUD over a REST API, with client and server side validation, cached server state, and error handling at every layer. Built as an individual learning project, structured with practices used in production systems rather than as a tutorial exercise.
 
-> **Status:** functionally complete, local development only. There is no authentication layer and no automated test suite. See [Known limitations](#known-limitations).
+> **Status:** functionally complete, local development only. There is no authentication layer. The backend has an automated test suite covering the model, serializer, service layer, and API integration, while the frontend still has no automated tests. See [Testing](#testing) and [Known limitations](#known-limitations).
 
 **Repository:** <https://github.com/lazardacic/iwc-farm-stack-app>
 
@@ -107,7 +107,7 @@ venv\Scripts\activate
 # Linux / macOS
 source venv/bin/activate
 
-pip install "fastapi[standard]" motor pymongo
+pip install "fastapi[standard]" motor pymongo pytest pytest-asyncio httpx
 
 python seed.py          # loads sample destination documents
 
@@ -132,6 +132,8 @@ App: `http://localhost:5173`
 ### Troubleshooting
 
 If the frontend loads but shows an error state, the backend is usually not running or the database container has stopped. Check with `docker ps`.
+
+If `pytest` is not available in your shell, run it through the virtual environment Python executable instead of the global interpreter.
 
 ## Project structure
 
@@ -166,7 +168,7 @@ Components never call Axios directly. All HTTP lives in `api/`, which exposes on
 | --- | --- | --- | --- |
 | `GET` | `/destinations` | List all destinations | 200 |
 | `GET` | `/destinations/{id}` | Get one destination | 200 |
-| `POST` | `/destinations` | Create a destination | 201 |
+| `POST` | `/destinations` | Create a destination | 200 |
 | `PUT` | `/destinations/{id}` | Update a destination | 200 |
 | `DELETE` | `/destinations/{id}` | Delete a destination | 200 |
 
@@ -227,16 +229,53 @@ Running against anything other than localhost currently requires a source edit. 
 
 ## Testing
 
-There is no automated test suite. Verification is manual, through Swagger UI for the backend and the browser for the frontend.
+The backend includes automated tests for the MongoDB-backed data flow and the FastAPI endpoints. Current coverage is split into:
 
-The scenarios covered include the full CRUD cycle, validation failures on both sides, malformed and unknown ids, empty collection and empty search results, backend unavailable, cancelled and confirmed deletes, unknown routes, and theme persistence across reloads. The full scenario list with expected results is in the technical documentation.
+- Unit tests for Pydantic models and destination serialization
+- Service tests for create, read, update, and delete logic
+- API integration tests that run FastAPI against a separate MongoDB test database
+
+Run the backend test suite from `backend/`:
+
+```bash
+pytest -v
+```
+
+If you are using the local virtual environment on Windows, the equivalent command is:
+
+```bash
+venv\Scripts\python.exe -m pytest -v
+```
+
+### Integration Testing
+
+The project uses a separate MongoDB database for integration tests:
+
+- Application database: `farm_db`
+- Test database: `farm_test_db`
+
+Both databases run on the same MongoDB instance.
+
+Pytest fixtures provide access to the test database and destination collection. Test data is cleaned up after tests so the production/development database is never modified.
+
+FastAPI dependency overrides are used to make API tests use the test database instead of `farm_db`.
+
+### Gaps To Add
+
+The current suite does not yet cover every failure path. The most useful additions would be:
+
+- frontend automated tests for the React app
+- MongoDB connection failure or unavailable database scenarios
+- broader edge-case coverage for partial updates, empty search results, and future endpoints
+
+Those tests would make the backend coverage much closer to production readiness.
 
 ## Known limitations
 
 | Limitation | Consequence |
 | --- | --- |
 | No authentication or authorization | Any client that can reach the API has full read and write access |
-| No automated tests | Regressions are only caught by manual re-verification |
+| No frontend automated tests | UI regressions are only caught by manual re-verification |
 | Configuration hardcoded | Running against a remote database needs a code change |
 | No pagination | `GET /destinations` returns the entire collection |
 | Client side search only | Filtering cost and payload size grow with the collection |
@@ -248,12 +287,13 @@ The scenarios covered include the full CRUD cycle, validation failures on both s
 
 Ordered by value:
 
-1. **Automated tests** — endpoint tests, validation tests, component tests, one end to end CRUD scenario. Prerequisite for changing anything else safely.
-2. **Environment variables** — small, required before any deployment.
-3. **Authentication** — registration, login, JWT, user and admin roles. The configured Axios client is where the token attaches.
-4. **Pagination and server side filtering** — `?page=1&limit=20`, filtering by country, price range, and rating, backed by an index.
-5. **Image upload** — file upload with cloud storage and optimization, replacing URL references.
-6. **Deployment** — production Compose setup, Nginx reverse proxy, CI/CD.
+1. **Frontend automated tests** — component and page coverage to match the backend safety net.
+2. **More backend failure cases** — invalid ids, missing documents, malformed payloads, and unavailable MongoDB.
+3. **Environment variables** — small, required before any deployment.
+4. **Authentication** — registration, login, JWT, user and admin roles. The configured Axios client is where the token attaches.
+5. **Pagination and server side filtering** — `?page=1&limit=20`, filtering by country, price range, and rating, backed by an index.
+6. **Image upload** — file upload with cloud storage and optimization, replacing URL references.
+7. **Deployment** — production Compose setup, Nginx reverse proxy, CI/CD.
 
 ## Documentation
 
