@@ -1,4 +1,12 @@
 from bson import ObjectId
+from bson.errors import InvalidId
+
+
+def _parse_object_id(id: str) -> ObjectId:
+    try:
+        return ObjectId(id)
+    except InvalidId as exc:
+        raise ValueError("Invalid destination id") from exc
 
 
 def destination_serializer(destination) -> dict:
@@ -25,8 +33,10 @@ async def get_all_destinations(collection):
 
 
 async def get_destination(collection, id: str):
+    object_id = _parse_object_id(id)
+
     destination = await collection.find_one(
-        {"_id": ObjectId(id)}
+        {"_id": object_id}
     )
 
     if destination:
@@ -46,21 +56,31 @@ async def create_destination(collection, data: dict):
 
 
 async def update_destination(collection, id: str, data: dict):
-    await collection.update_one(
-        {"_id": ObjectId(id)},
+    object_id = _parse_object_id(id)
+
+    result = await collection.update_one(
+        {"_id": object_id},
         {"$set": data},
     )
 
+    if result.matched_count == 0:
+        return None
+
     updated = await collection.find_one(
-        {"_id": ObjectId(id)}
+        {"_id": object_id}
     )
 
     return destination_serializer(updated)
 
 
 async def delete_destination(collection, id: str):
-    await collection.delete_one(
-        {"_id": ObjectId(id)}
+    object_id = _parse_object_id(id)
+
+    result = await collection.delete_one(
+        {"_id": object_id}
     )
+
+    if result.deleted_count == 0:
+        return None
 
     return {"message": "Destination deleted"}

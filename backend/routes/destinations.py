@@ -38,7 +38,13 @@ async def fetch_destination(
     id: str,
     collection: DestinationCollection,
 ):
-    destination = await get_destination(collection, id)
+    try:
+        destination = await get_destination(collection, id)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid destination id",
+        )
 
     if not destination:
         raise HTTPException(
@@ -66,11 +72,25 @@ async def edit_destination(
     destination: DestinationCreate,
     collection: DestinationCollection,
 ):
-    return await update_destination(
-        collection,
-        id,
-        destination.model_dump(),
-    )
+    try:
+        updated = await update_destination(
+            collection,
+            id,
+            destination.model_dump(),
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid destination id",
+        )
+
+    if not updated:
+        raise HTTPException(
+            status_code=404,
+            detail="Destination not found",
+        )
+
+    return updated
 
 
 @router.delete("/{id}")
@@ -78,7 +98,21 @@ async def remove_destination(
     id: str,
     collection: DestinationCollection,
 ):
-    return await delete_destination(
-        collection,
-        id,
-    )
+    try:
+        deleted = await delete_destination(
+            collection,
+            id,
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid destination id",
+        )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Destination not found",
+        )
+
+    return deleted
