@@ -9,3 +9,9 @@ def get_destination_collection(request: Request):
     database = get_database(request)
 
     return database["destinations"]
+
+
+def get_user_collection(request: Request):
+    database = get_database(request)
+
+    return database["users"]

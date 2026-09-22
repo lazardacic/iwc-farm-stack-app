@@ -5,6 +5,8 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 
 from database.dependencies import get_destination_collection
 from models.destination import DestinationCreate
+from models.user import UserResponse
+from routes.auth import CurrentUser, require_roles
 from services.destination_service import (
     get_all_destinations,
     get_destination,
@@ -55,10 +57,17 @@ async def fetch_destination(
     return destination
 
 
+AdminUser = Annotated[
+    UserResponse,
+    Depends(require_roles("admin")),
+]
+
+
 @router.post("/")
 async def add_destination(
     destination: DestinationCreate,
     collection: DestinationCollection,
+    current_user: CurrentUser,
 ):
     return await create_destination(
         collection,
@@ -71,6 +80,7 @@ async def edit_destination(
     id: str,
     destination: DestinationCreate,
     collection: DestinationCollection,
+    current_user: CurrentUser,
 ):
     try:
         updated = await update_destination(
@@ -97,6 +107,7 @@ async def edit_destination(
 async def remove_destination(
     id: str,
     collection: DestinationCollection,
+    current_user: AdminUser,
 ):
     try:
         deleted = await delete_destination(

@@ -2,6 +2,18 @@ import httpx
 from bson import ObjectId
 import pytest
 
+from security import create_access_token
+
+
+async def make_auth_headers(user_collection, email: str, role: str = "user"):
+    user = await user_collection.insert_one({
+        "email": email,
+        "password_hash": "hashed-password",
+        "role": role,
+    })
+    token = create_access_token(str(user.inserted_id))
+    return {"Authorization": f"Bearer {token}"}
+
 
 @pytest.mark.asyncio
 async def test_get_destinations(test_app):
@@ -117,7 +129,7 @@ async def test_get_destination_not_found(test_app):
 
 
 @pytest.mark.asyncio
-async def test_create_destination(test_app, destination_collection):
+async def test_create_destination(test_app, destination_collection, user_collection):
     data = {
         "title": "Rome Trip",
         "country": "Italy",
@@ -129,6 +141,7 @@ async def test_create_destination(test_app, destination_collection):
         "featured": False,
     }
 
+    headers = await make_auth_headers(user_collection, "creator@example.com")
     transport = httpx.ASGITransport(app=test_app)
 
     async with httpx.AsyncClient(
@@ -138,6 +151,7 @@ async def test_create_destination(test_app, destination_collection):
         response = await client.post(
             "/destinations/",
             json=data,
+            headers=headers,
         )
 
     assert response.status_code == 200
@@ -155,7 +169,8 @@ async def test_create_destination(test_app, destination_collection):
 
 
 @pytest.mark.asyncio
-async def test_create_destination_validation_error(test_app):
+async def test_create_destination_validation_error(test_app, user_collection):
+    headers = await make_auth_headers(user_collection, "creator-invalid@example.com")
     transport = httpx.ASGITransport(app=test_app)
 
     invalid_data = {
@@ -172,13 +187,14 @@ async def test_create_destination_validation_error(test_app):
         response = await client.post(
             "/destinations/",
             json=invalid_data,
+            headers=headers,
         )
 
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_update_destination_validation_error(test_app, destination_collection):
+async def test_update_destination_validation_error(test_app, destination_collection, user_collection):
     result = await destination_collection.insert_one(
         {
             "title": "Old Title",
@@ -193,6 +209,7 @@ async def test_update_destination_validation_error(test_app, destination_collect
     )
 
     destination_id = str(result.inserted_id)
+    headers = await make_auth_headers(user_collection, "updater-invalid@example.com")
 
     invalid_data = {
         "title": "New Title",
@@ -211,6 +228,7 @@ async def test_update_destination_validation_error(test_app, destination_collect
         response = await client.put(
             f"/destinations/{destination_id}",
             json=invalid_data,
+            headers=headers,
         )
 
     assert response.status_code == 422
@@ -220,6 +238,7 @@ async def test_update_destination_validation_error(test_app, destination_collect
 async def test_update_destination(
     test_app,
     destination_collection,
+    user_collection,
 ):
     data = {
         "title": "Old Title",
@@ -233,6 +252,7 @@ async def test_update_destination(
     }
 
     result = await destination_collection.insert_one(data)
+    headers = await make_auth_headers(user_collection, "updater@example.com")
 
     destination_id = str(result.inserted_id)
 
@@ -256,6 +276,7 @@ async def test_update_destination(
         response = await client.put(
             f"/destinations/{destination_id}",
             json=update_data,
+            headers=headers,
         )
 
     assert response.status_code == 200
@@ -269,7 +290,8 @@ async def test_update_destination(
 
 
 @pytest.mark.asyncio
-async def test_update_destination_invalid_id(test_app):
+async def test_update_destination_invalid_id(test_app, user_collection):
+    headers = await make_auth_headers(user_collection, "updater-invalid-id@example.com")
     transport = httpx.ASGITransport(app=test_app)
 
     update_data = {
@@ -290,6 +312,7 @@ async def test_update_destination_invalid_id(test_app):
         response = await client.put(
             "/destinations/not-a-valid-id",
             json=update_data,
+            headers=headers,
         )
 
     assert response.status_code == 400
@@ -297,7 +320,8 @@ async def test_update_destination_invalid_id(test_app):
 
 
 @pytest.mark.asyncio
-async def test_update_destination_not_found(test_app):
+async def test_update_destination_not_found(test_app, user_collection):
+    headers = await make_auth_headers(user_collection, "updater-not-found@example.com")
     transport = httpx.ASGITransport(app=test_app)
 
     update_data = {
@@ -318,6 +342,7 @@ async def test_update_destination_not_found(test_app):
         response = await client.put(
             f"/destinations/{ObjectId()}",
             json=update_data,
+            headers=headers,
         )
 
     assert response.status_code == 404
@@ -328,6 +353,7 @@ async def test_update_destination_not_found(test_app):
 async def test_delete_destination(
     test_app,
     destination_collection,
+    user_collection,
 ):
     data = {
         "title": "Delete Me",
@@ -341,6 +367,7 @@ async def test_delete_destination(
     }
 
     insert_result = await destination_collection.insert_one(data)
+    headers = await make_auth_headers(user_collection, "admin-delete@example.com", role="admin")
 
     destination_id = str(insert_result.inserted_id)
 
@@ -351,7 +378,8 @@ async def test_delete_destination(
         base_url="http://test",
     ) as client:
         response = await client.delete(
-            f"/destinations/{destination_id}"
+            f"/destinations/{destination_id}",
+            headers=headers,
         )
 
     assert response.status_code == 200
@@ -368,28 +396,36 @@ async def test_delete_destination(
 
 
 @pytest.mark.asyncio
-async def test_delete_destination_invalid_id(test_app):
+async def test_delete_destination_invalid_id(test_app, user_collection):
+    headers = await make_auth_headers(user_collection, "admin-delete-invalid@example.com", role="admin")
     transport = httpx.ASGITransport(app=test_app)
 
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://test",
     ) as client:
-        response = await client.delete("/destinations/not-a-valid-id")
+        response = await client.delete(
+            "/destinations/not-a-valid-id",
+            headers=headers,
+        )
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid destination id"
 
 
 @pytest.mark.asyncio
-async def test_delete_destination_not_found(test_app):
+async def test_delete_destination_not_found(test_app, user_collection):
+    headers = await make_auth_headers(user_collection, "admin-delete-not-found@example.com", role="admin")
     transport = httpx.ASGITransport(app=test_app)
 
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://test",
     ) as client:
-        response = await client.delete(f"/destinations/{ObjectId()}")
+        response = await client.delete(
+            f"/destinations/{ObjectId()}",
+            headers=headers,
+        )
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Destination not found"

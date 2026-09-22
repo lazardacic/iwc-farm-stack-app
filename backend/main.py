@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database.connection import create_mongo_client, get_database
+from routes.auth import router as auth_router
 from routes.destinations import router as destination_router
 
 
@@ -33,6 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(destination_router)
 
 
