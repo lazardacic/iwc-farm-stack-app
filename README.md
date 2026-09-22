@@ -4,7 +4,7 @@ A travel destination management application built with **FastAPI, React, MongoDB
 
 Full CRUD over a REST API, with client and server side validation, cached server state, and error handling at every layer. Built as an individual learning project, structured with practices used in production systems rather than as a tutorial exercise.
 
-> **Status:** functionally complete, local development only. There is no authentication layer. The backend has an automated test suite covering the model, serializer, service layer, and API integration, while the frontend still has no automated tests. See [Testing](#testing) and [Known limitations](#known-limitations).
+> **Status:** backend authentication and authorization are implemented and validated. The project still targets local development, and the frontend does not yet include authentication UI flows. The backend now includes JWT-based auth, role checks, and an automated test suite covering models, service logic, auth routes, and API integration. See [Testing](#testing) and [Known limitations](#known-limitations).
 
 **Repository:** <https://github.com/lazardacic/iwc-farm-stack-app>
 
@@ -53,6 +53,9 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 
 - Complete CRUD lifecycle over a single `destinations` resource
 - REST API with automatic OpenAPI documentation at `/docs`
+- JWT-based authentication with register/login flow
+- Current-user endpoint and role-based access control
+- Admin-only protected destination deletion and mutation rules
 - Client side validation with Zod, authoritative server side validation with Pydantic
 - Server state caching and invalidation with TanStack Query
 - One reusable form component shared by the create and edit pages
@@ -107,7 +110,12 @@ venv\Scripts\activate
 # Linux / macOS
 source venv/bin/activate
 
-pip install "fastapi[standard]" motor pymongo pytest pytest-asyncio httpx
+pip install "fastapi[standard]" motor pymongo pytest pytest-asyncio httpx argon2-cffi PyJWT
+
+# set the JWT secret before running the API
+set JWT_SECRET=your_super_secure_secret_key_here
+# Linux / macOS
+export JWT_SECRET=your_super_secure_secret_key_here
 
 python seed.py          # loads sample destination documents
 
@@ -115,6 +123,8 @@ fastapi dev main.py     # or: uvicorn main:app --reload
 ```
 
 The quotes around `"fastapi[standard]"` are required in zsh, which otherwise treats the square brackets as a glob pattern.
+
+The backend requires a `JWT_SECRET` environment variable for token signing. For HS256, a secret of at least 32 bytes is recommended.
 
 - API: `http://localhost:8000`
 - Swagger UI: `http://localhost:8000/docs`
@@ -164,6 +174,8 @@ Components never call Axios directly. All HTTP lives in `api/`, which exposes on
 
 ## API reference
 
+### Destination routes
+
 | Method | Endpoint | Description | Success |
 | --- | --- | --- | --- |
 | `GET` | `/destinations` | List all destinations | 200 |
@@ -172,11 +184,21 @@ Components never call Axios directly. All HTTP lives in `api/`, which exposes on
 | `PUT` | `/destinations/{id}` | Update a destination | 200 |
 | `DELETE` | `/destinations/{id}` | Delete a destination | 200 |
 
+### Auth routes
+
+| Method | Endpoint | Description | Success |
+| --- | --- | --- | --- |
+| `POST` | `/auth/register` | Register a new user | 201 |
+| `POST` | `/auth/login` | Authenticate and receive JWT | 200 |
+| `GET` | `/auth/me` | Return current authenticated user | 200 |
+
 **Status codes**
 
 | Code | When |
 | --- | --- |
-| 400 | The supplied id is not a valid `ObjectId` |
+| 400 | Duplicate email or malformed request handling |
+| 401 | Missing, invalid, expired, or unknown token |
+| 403 | Token is valid but role is not allowed |
 | 404 | Valid id, but no matching document |
 | 422 | Pydantic rejected one or more fields in the body |
 | 500 | Unhandled backend or database error |
@@ -215,13 +237,14 @@ A destination is one self contained document. No joins, no transformation layer 
 
 ## Configuration
 
-These values are currently defined in code, not in environment variables.
+These values are configured in code and environment variables for the backend auth layer.
 
 | Value | Setting |
 | --- | --- |
 | MongoDB connection | `mongodb://localhost:27017` |
 | Backend | `http://localhost:8000` |
 | Frontend dev server | `http://localhost:5173` |
+| JWT secret | `JWT_SECRET` environment variable |
 | Query stale time | 5 minutes |
 | Query retry count | 1 |
 
@@ -229,22 +252,24 @@ Running against anything other than localhost currently requires a source edit. 
 
 ## Testing
 
-The backend includes automated tests for the MongoDB-backed data flow and the FastAPI endpoints. Current coverage is split into:
+The backend includes automated tests for the MongoDB-backed data flow, auth flow, and FastAPI endpoints. Current coverage is split into:
 
-- Unit tests for Pydantic models and destination serialization
+- Unit tests for Pydantic models and password validation
+- Auth tests for registration, login, JWT decode, and current user lookup
+- Authorization tests for protected routes and admin-only access
 - Service tests for create, read, update, and delete logic
 - API integration tests that run FastAPI against a separate MongoDB test database
 
 Run the backend test suite from `backend/`:
 
 ```bash
-pytest -v
+pytest -q
 ```
 
 If you are using the local virtual environment on Windows, the equivalent command is:
 
 ```bash
-venv\Scripts\python.exe -m pytest -v
+C:/Projects/iwc-farm-stack-app/.venv/Scripts/python.exe -m pytest -q
 ```
 
 ### Integration Testing
@@ -262,20 +287,21 @@ FastAPI dependency overrides are used to make API tests use the test database in
 
 ### Gaps To Add
 
-The current suite does not yet cover every failure path. The most useful additions would be:
+The current suite covers the main auth and CRUD paths, but there are still useful additions for broader production readiness:
 
 - frontend automated tests for the React app
+- refresh token flow and logout handling
+- password reset / email verification flows
 - MongoDB connection failure or unavailable database scenarios
 - broader edge-case coverage for partial updates, empty search results, and future endpoints
-
-Those tests would make the backend coverage much closer to production readiness.
 
 ## Known limitations
 
 | Limitation | Consequence |
 | --- | --- |
-| No authentication or authorization | Any client that can reach the API has full read and write access |
-| No frontend automated tests | UI regressions are only caught by manual re-verification |
+| No refresh token flow | JWT sessions remain single-token and expire after one lifetime |
+| No password reset or email verification | Recovery and account lifecycle are still manual |
+| No frontend auth UI | The app still needs login, register, and protected-page UX in React |
 | Configuration hardcoded | Running against a remote database needs a code change |
 | No pagination | `GET /destinations` returns the entire collection |
 | Client side search only | Filtering cost and payload size grow with the collection |
@@ -287,10 +313,10 @@ Those tests would make the backend coverage much closer to production readiness.
 
 Ordered by value:
 
-1. **Frontend automated tests** — component and page coverage to match the backend safety net.
-2. **More backend failure cases** — invalid ids, missing documents, malformed payloads, and unavailable MongoDB.
-3. **Environment variables** — small, required before any deployment.
-4. **Authentication** — registration, login, JWT, user and admin roles. The configured Axios client is where the token attaches.
+1. **Frontend auth UI** — login, registration, token persistence, protected routes, and logout flow.
+2. **Refresh tokens and session management** — long-lived auth flow with token refresh and revocation support.
+3. **More backend failure cases** — invalid ids, missing documents, malformed payloads, and unavailable MongoDB.
+4. **Environment variables** — small, required before any deployment.
 5. **Pagination and server side filtering** — `?page=1&limit=20`, filtering by country, price range, and rating, backed by an index.
 6. **Image upload** — file upload with cloud storage and optimization, replacing URL references.
 7. **Deployment** — production Compose setup, Nginx reverse proxy, CI/CD.
