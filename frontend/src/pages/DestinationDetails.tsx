@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
+import { isAuthStatusError } from "../api/axiosClient";
 import { getDestination, deleteDestination } from "../api/destinationsApi";
 
 import type { Destination } from "../types/destination";
@@ -13,9 +14,11 @@ import Modal from "../components/ui/Modal";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
+import { useAuth } from "../hooks/useAuth";
 
 const DestinationDetails = () => {
   const { id } = useParams();
+  const { isAdmin, isAuthenticated } = useAuth();
 
   const navigate = useNavigate();
 
@@ -61,7 +64,9 @@ const DestinationDetails = () => {
     } catch (error) {
       console.error(error);
 
-      toast.error("Unable to delete destination");
+      if (!isAuthStatusError(error)) {
+        toast.error("Unable to delete destination");
+      }
     }
   };
 
@@ -223,6 +228,12 @@ const DestinationDetails = () => {
                 {destination.title}
               </h1>
 
+              {isAdmin && (
+                <div className="mt-3">
+                  <Badge variant="yellow">Admin controls enabled</Badge>
+                </div>
+              )}
+
               <p
                 className="
                   mt-2
@@ -352,13 +363,29 @@ const DestinationDetails = () => {
                 sm:flex-row
               "
             >
-              <Button onClick={() => navigate(`/edit/${destination.id}`)}>
-                ✏ Edit
-              </Button>
+              {isAuthenticated && (
+                <Button onClick={() => navigate(`/edit/${destination.id}`)}>
+                  ✏ Edit
+                </Button>
+              )}
 
-              <Button variant="danger" onClick={() => setDeleteModal(true)}>
-                🗑 Delete
-              </Button>
+              {!isAuthenticated && (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Sign in to edit this destination.
+                </p>
+              )}
+
+              {isAdmin && (
+                <Button variant="danger" onClick={() => setDeleteModal(true)}>
+                  🗑 Delete
+                </Button>
+              )}
+
+              {isAuthenticated && !isAdmin && (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Delete is restricted to administrators.
+                </p>
+              )}
             </div>
           </div>
         </Card>

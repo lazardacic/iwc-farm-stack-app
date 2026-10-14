@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 
 import DestinationForm from "../components/forms/DestinationForm";
 
+import { isAuthStatusError } from "../api/axiosClient";
 import { getDestination, updateDestination } from "../api/destinationsApi";
 
 import type { Destination } from "../types/destination";
@@ -70,7 +71,9 @@ const EditDestination = () => {
     } catch (error) {
       console.error(error);
 
-      toast.error("Unable to update destination");
+      if (!isAuthStatusError(error)) {
+        toast.error("Unable to update destination");
+      }
     } finally {
       setLoading(false);
     }

@@ -13,6 +13,9 @@ Relevant files:
 - [backend/database/dependencies.py](./database/dependencies.py)
 - [backend/models/user.py](./models/user.py)
 - [backend/tests/conftest.py](./tests/conftest.py)
+- [frontend/src/api/axiosClient.ts](../frontend/src/api/axiosClient.ts)
+- [frontend/src/context/AuthProvider.tsx](../frontend/src/context/AuthProvider.tsx)
+- [frontend/src/routes/AppRoutes.tsx](../frontend/src/routes/AppRoutes.tsx)
 
 ## What is implemented
 
@@ -97,6 +100,30 @@ Public access remains allowed for reading destinations:
 Defined in:
 - [backend/routes/destinations.py](./routes/destinations.py)
 
+### 7. Frontend auth integration
+The frontend now consumes the backend auth API and enforces the same access model in the UI.
+
+Implemented frontend behavior:
+- login page and register page
+- global auth state through a context provider
+- JWT token storage in `localStorage`
+- automatic `Authorization: Bearer <token>` header injection through Axios
+- protected frontend routes for create and edit pages
+- guest-only routes for login and register pages
+- session recovery through `GET /auth/me` on app startup
+- automatic logout and redirect on invalid or expired token
+- admin-only delete controls in the UI
+
+Relevant frontend files:
+- [frontend/src/api/authApi.ts](../frontend/src/api/authApi.ts)
+- [frontend/src/api/axiosClient.ts](../frontend/src/api/axiosClient.ts)
+- [frontend/src/context/AuthProvider.tsx](../frontend/src/context/AuthProvider.tsx)
+- [frontend/src/components/auth/ProtectedRoute.tsx](../frontend/src/components/auth/ProtectedRoute.tsx)
+- [frontend/src/components/auth/GuestRoute.tsx](../frontend/src/components/auth/GuestRoute.tsx)
+- [frontend/src/pages/Login.tsx](../frontend/src/pages/Login.tsx)
+- [frontend/src/pages/Register.tsx](../frontend/src/pages/Register.tsx)
+- [frontend/src/pages/DestinationDetails.tsx](../frontend/src/pages/DestinationDetails.tsx)
+
 ## Database integration
 The project keeps using MongoDB collections via dependency injection, without introducing a repository layer.
 
@@ -106,6 +133,13 @@ Dependencies in:
 Collections used:
 - `users`
 - `destinations`
+
+For local development, the project also includes a helper script that seeds two users into the `users` collection:
+- [backend/seed_users.py](./seed_users.py)
+
+Development users created by that script:
+- `admin@example.com` / `admin1234`
+- `user@example.com` / `user12345`
 
 ## Testing
 The backend uses a test database named `farm_test_db` and overrides dependency injections in tests.
@@ -118,6 +152,7 @@ Test configuration:
 Relevant test groups:
 - auth login, register, me, authorization
 - destination API integration tests
+- frontend auth guard tests
 
 ## Required environment variable
 Set this before running the application:
@@ -172,6 +207,17 @@ DELETE /destinations/{id}
 Authorization: Bearer <admin-jwt>
 ```
 
+## Frontend auth flow
+
+1. A user registers through `POST /auth/register` or logs in through `POST /auth/login`.
+2. The frontend stores the returned access token in `localStorage`.
+3. Axios automatically attaches the token to protected requests.
+4. On app startup, the frontend calls `GET /auth/me` to restore the current user.
+5. Protected frontend routes allow access to create and edit pages only when a user is authenticated.
+6. Admin-only destructive UI actions are shown only when the current user role is `admin`.
+7. If the backend returns `401`, the frontend clears the token, resets auth state, and redirects the user back to login.
+8. If the backend returns `403`, the frontend shows a forbidden message and keeps the current session.
+
 ## Validation status
 The backend auth implementation has been validated with the real project test suite.
 
@@ -184,6 +230,17 @@ Result in the last successful run:
 ```text
 63 passed in 2.75s
 ```
+
+Frontend validation commands:
+```bash
+cd frontend
+npm run test
+npm run build
+```
+
+Frontend validation status:
+- auth route guard tests passed
+- production build passed
 
 ## Notes
 This implementation is intentionally minimal and aligned with the project’s existing style:
@@ -198,3 +255,4 @@ For a future production hardening pass, the next logical improvements would be:
 - role-permission matrix
 - stricter secret management via `.env` or secret manager
 - request logging and audit trail
+- stronger client-side session storage and CSRF/XSS mitigation strategy

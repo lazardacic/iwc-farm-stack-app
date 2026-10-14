@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import DestinationForm from "../components/forms/DestinationForm";
 
 import { createDestination } from "../api/destinationsApi";
+import { isAuthStatusError } from "../api/axiosClient";
 
 import type { DestinationFormValues } from "../types/destinationForm";
 
@@ -32,7 +33,9 @@ const CreateDestination = () => {
     } catch (error) {
       console.error(error);
 
-      toast.error("Unable to create destination");
+      if (!isAuthStatusError(error)) {
+        toast.error("Unable to create destination");
+      }
     } finally {
       setLoading(false);
     }

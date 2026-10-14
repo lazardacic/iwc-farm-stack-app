@@ -4,7 +4,7 @@ A travel destination management application built with **FastAPI, React, MongoDB
 
 Full CRUD over a REST API, with client and server side validation, cached server state, and error handling at every layer. Built as an individual learning project, structured with practices used in production systems rather than as a tutorial exercise.
 
-> **Status:** backend authentication and authorization are implemented and validated. The project still targets local development, and the frontend does not yet include authentication UI flows. The backend now includes JWT-based auth, role checks, and an automated test suite covering models, service logic, auth routes, and API integration. See [Testing](#testing) and [Known limitations](#known-limitations).
+> **Status:** backend and frontend authentication flows are implemented and validated for local development. The project now includes JWT-based auth, role checks, protected frontend routes, session-aware UI, and an automated test suite covering backend auth, API integration, and frontend route guards. See [Testing](#testing) and [Known limitations](#known-limitations).
 
 **Repository:** <https://github.com/lazardacic/iwc-farm-stack-app>
 
@@ -56,6 +56,10 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - JWT-based authentication with register/login flow
 - Current-user endpoint and role-based access control
 - Admin-only protected destination deletion and mutation rules
+- Frontend login/register pages with persistent session state
+- Protected frontend routes for create and edit pages
+- Session-aware navigation and automatic logout on invalid or expired token
+- Admin-only UI actions for destructive operations
 - Client side validation with Zod, authoritative server side validation with Pydantic
 - Server state caching and invalidation with TanStack Query
 - One reusable form component shared by the create and edit pages
@@ -139,6 +143,17 @@ npm run dev
 
 App: `http://localhost:5173`
 
+To create local development users without registering manually each time, you can also run:
+
+```bash
+cd backend
+python seed_users.py
+```
+
+This creates:
+- `admin@example.com` / `admin1234`
+- `user@example.com` / `user12345`
+
 ### Troubleshooting
 
 If the frontend loads but shows an error state, the backend is usually not running or the database container has stopped. Check with `docker ps`.
@@ -149,28 +164,31 @@ If `pytest` is not available in your shell, run it through the virtual environme
 
 ```
 src/
-├── api/            axiosClient.ts, destinationsApi.ts
+├── api/            axiosClient.ts, authApi.ts, destinationsApi.ts
 ├── assets/         logo.svg, images/
 ├── components/
+│   ├── auth/       ProtectedRoute.tsx, GuestRoute.tsx
 │   ├── ui/         Button, Input, Textarea, Card, Badge, Loader, Skeleton,
 │   │               Modal, SearchBar, EmptyState, ErrorState
-│   ├── forms/      DestinationForm.tsx
+│   ├── forms/      DestinationForm.tsx, AuthForm.tsx
 │   ├── destination/  DestinationCard.tsx, DestinationCardSkeleton.tsx
 │   └── layout/     Navbar, Footer, MainLayout, ThemeToggle
-├── context/        ThemeContext.tsx
-├── hooks/          useTheme.ts
+├── context/        ThemeContext.tsx, AuthContext.tsx, AuthProvider.tsx
+├── hooks/          useTheme.ts, useAuth.ts
 ├── pages/          Home, DestinationDetails, CreateDestination,
-│                   EditDestination, NotFound, ErrorPage
+│                   EditDestination, Login, Register, NotFound
 ├── providers/      QueryProvider.tsx
 ├── routes/         AppRoutes.tsx
-├── types/          destination.ts, destinationForm.ts
-├── validation/     destinationSchema.ts
+├── types/          auth.ts, destination.ts, destinationForm.ts
+├── validation/     authSchema.ts, destinationSchema.ts
+├── test/           setup.ts
 ├── styles/         globals.css
 ├── App.tsx
 └── main.tsx
 ```
 
 Components never call Axios directly. All HTTP lives in `api/`, which exposes one function per operation. Validation rules live in a single Zod schema in `validation/`.
+Authentication state lives in a global context provider, and protected pages are enforced through route guard components instead of page-local checks.
 
 ## API reference
 
@@ -245,6 +263,7 @@ These values are configured in code and environment variables for the backend au
 | Backend | `http://localhost:8000` |
 | Frontend dev server | `http://localhost:5173` |
 | JWT secret | `JWT_SECRET` environment variable |
+| Auth token storage | browser `localStorage` |
 | Query stale time | 5 minutes |
 | Query retry count | 1 |
 
@@ -260,6 +279,8 @@ The backend includes automated tests for the MongoDB-backed data flow, auth flow
 - Service tests for create, read, update, and delete logic
 - API integration tests that run FastAPI against a separate MongoDB test database
 
+The frontend currently includes focused auth route guard tests and a production build check.
+
 Run the backend test suite from `backend/`:
 
 ```bash
@@ -270,6 +291,18 @@ If you are using the local virtual environment on Windows, the equivalent comman
 
 ```bash
 C:/Projects/iwc-farm-stack-app/.venv/Scripts/python.exe -m pytest -q
+```
+
+Run the frontend auth guard tests from `frontend/`:
+
+```bash
+npm run test
+```
+
+Run the frontend production build:
+
+```bash
+npm run build
 ```
 
 ### Integration Testing
@@ -289,7 +322,7 @@ FastAPI dependency overrides are used to make API tests use the test database in
 
 The current suite covers the main auth and CRUD paths, but there are still useful additions for broader production readiness:
 
-- frontend automated tests for the React app
+- broader frontend tests for forms, auth provider behavior, and mutation flows
 - refresh token flow and logout handling
 - password reset / email verification flows
 - MongoDB connection failure or unavailable database scenarios
@@ -301,7 +334,7 @@ The current suite covers the main auth and CRUD paths, but there are still usefu
 | --- | --- |
 | No refresh token flow | JWT sessions remain single-token and expire after one lifetime |
 | No password reset or email verification | Recovery and account lifecycle are still manual |
-| No frontend auth UI | The app still needs login, register, and protected-page UX in React |
+| Auth token stored in `localStorage` | Simpler client integration, but not the strongest production security model |
 | Configuration hardcoded | Running against a remote database needs a code change |
 | No pagination | `GET /destinations` returns the entire collection |
 | Client side search only | Filtering cost and payload size grow with the collection |
@@ -313,8 +346,8 @@ The current suite covers the main auth and CRUD paths, but there are still usefu
 
 Ordered by value:
 
-1. **Frontend auth UI** — login, registration, token persistence, protected routes, and logout flow.
-2. **Refresh tokens and session management** — long-lived auth flow with token refresh and revocation support.
+1. **Refresh tokens and session management** — long-lived auth flow with token refresh and revocation support.
+2. **Broader frontend tests** — auth provider tests, form tests, and user interaction coverage.
 3. **More backend failure cases** — invalid ids, missing documents, malformed payloads, and unavailable MongoDB.
 4. **Environment variables** — small, required before any deployment.
 5. **Pagination and server side filtering** — `?page=1&limit=20`, filtering by country, price range, and rating, backed by an index.

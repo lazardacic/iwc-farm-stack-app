@@ -1,13 +1,24 @@
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
+import toast from "react-hot-toast";
 
 import { FiMenu, FiX, FiPlus } from "react-icons/fi";
 
+import { useAuth } from "../../hooks/useAuth";
+
+import Badge from "../ui/Badge";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
+  const { isAuthenticated, logout, user } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    setOpen(false);
+    toast.success("Signed out successfully");
+  };
 
   const linkClasses = ({ isActive }: { isActive: boolean }) =>
     `
@@ -71,30 +82,69 @@ const Navbar = () => {
             Home
           </NavLink>
 
-          <Link
-            to="/create"
-            className="
-              flex
-              items-center
-              gap-2
+          {isAuthenticated ? (
+            <>
+              <Link
+                to="/create"
+                className="
+                  flex
+                  items-center
+                  gap-2
 
-              rounded-xl
+                  rounded-xl
 
-              bg-blue-600
-              px-4
-              py-2
+                  bg-blue-600
+                  px-4
+                  py-2
 
-              font-medium
-              text-white
+                  font-medium
+                  text-white
 
-              transition
+                  transition
 
-              hover:bg-blue-700
-            "
-          >
-            <FiPlus />
-            Create
-          </Link>
+                  hover:bg-blue-700
+                "
+              >
+                <FiPlus />
+                Create
+              </Link>
+
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                {user?.email}
+              </span>
+
+              {user?.role === "admin" && <Badge variant="yellow">Admin</Badge>}
+
+              <button
+                className="font-medium text-slate-600 transition hover:text-blue-600 dark:text-slate-300"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <NavLink to="/login" className={linkClasses}>
+                Login
+              </NavLink>
+
+              <Link
+                to="/register"
+                className="
+                  rounded-xl
+                  bg-blue-600
+                  px-4
+                  py-2
+                  font-medium
+                  text-white
+                  transition
+                  hover:bg-blue-700
+                "
+              >
+                Register
+              </Link>
+            </>
+          )}
 
           <ThemeToggle />
         </nav>
@@ -147,13 +197,48 @@ const Navbar = () => {
               Home
             </NavLink>
 
-            <NavLink
-              to="/create"
-              onClick={() => setOpen(false)}
-              className={linkClasses}
-            >
-              Create Destination
-            </NavLink>
+            {isAuthenticated ? (
+              <>
+                <NavLink
+                  to="/create"
+                  onClick={() => setOpen(false)}
+                  className={linkClasses}
+                >
+                  Create Destination
+                </NavLink>
+
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {user?.email}
+                </p>
+
+                {user?.role === "admin" && <Badge variant="yellow">Admin</Badge>}
+
+                <button
+                  className="text-left text-slate-600 transition hover:text-blue-600 dark:text-slate-300"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <NavLink
+                  to="/login"
+                  onClick={() => setOpen(false)}
+                  className={linkClasses}
+                >
+                  Login
+                </NavLink>
+
+                <NavLink
+                  to="/register"
+                  onClick={() => setOpen(false)}
+                  className={linkClasses}
+                >
+                  Register
+                </NavLink>
+              </>
+            )}
 
             <ThemeToggle />
           </nav>
