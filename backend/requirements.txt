@@ -1,3 +1,5 @@
 fastapi[standard]
 motor
 pydantic
+PyJWT
+argon2-cffi

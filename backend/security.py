@@ -3,6 +3,10 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 from argon2 import PasswordHasher
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 
 JWT_SECRET = os.environ.get("JWT_SECRET")
