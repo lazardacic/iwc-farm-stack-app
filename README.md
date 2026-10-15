@@ -45,7 +45,7 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 
 **Frontend** — React, TypeScript, Vite, React Router, Axios, TanStack Query, React Hook Form, Zod, Tailwind CSS, React Hot Toast, clsx, React Icons
 
-**Backend** — Python 3.14, FastAPI, Uvicorn, Motor, Pydantic
+**Backend** — Python 3.14, FastAPI, Uvicorn, Motor, Pydantic, python-dotenv
 
 **Database and tooling** — MongoDB, Docker, Docker Compose
 
@@ -107,6 +107,7 @@ MongoDB is now reachable at `mongodb://localhost:27017`.
 ### 3. Start the backend
 
 ```bash
+cd backend
 python -m venv venv
 
 # Windows
@@ -114,21 +115,18 @@ venv\Scripts\activate
 # Linux / macOS
 source venv/bin/activate
 
-pip install "fastapi[standard]" motor pymongo pytest pytest-asyncio httpx argon2-cffi PyJWT
+pip install -r requirements.txt
 
-# set the JWT secret before running the API
-set JWT_SECRET=your_super_secure_secret_key_here
-# Linux / macOS
-export JWT_SECRET=your_super_secure_secret_key_here
+# Create backend/.env from the example (run from backend/)
+cp .env.example .env
+# PowerShell equivalent: Copy-Item .env.example .env
 
 python seed.py          # loads sample destination documents
 
 fastapi dev main.py     # or: uvicorn main:app --reload
 ```
 
-The quotes around `"fastapi[standard]"` are required in zsh, which otherwise treats the square brackets as a glob pattern.
-
-The backend requires a `JWT_SECRET` environment variable for token signing. For HS256, a secret of at least 32 bytes is recommended.
+Edit `backend/.env` and replace the development `JWT_SECRET` with a unique random value before deployment. The backend loads this file automatically.
 
 - API: `http://localhost:8000`
 - Swagger UI: `http://localhost:8000/docs`
@@ -138,6 +136,8 @@ The backend requires a `JWT_SECRET` environment variable for token signing. For 
 ```bash
 cd frontend
 npm install
+cp .env.example .env
+# PowerShell equivalent: Copy-Item .env.example .env
 npm run dev
 ```
 
@@ -255,19 +255,17 @@ A destination is one self contained document. No joins, no transformation layer 
 
 ## Configuration
 
-These values are configured in code and environment variables for the backend auth layer.
+Backend settings are read from `backend/.env`; frontend settings are read from `frontend/.env`. Copy each `.env.example` to `.env` before starting the app. The actual `.env` files are ignored by git.
 
-| Value | Setting |
-| --- | --- |
-| MongoDB connection | `mongodb://localhost:27017` |
-| Backend | `http://localhost:8000` |
-| Frontend dev server | `http://localhost:5173` |
-| JWT secret | `JWT_SECRET` environment variable |
-| Auth token storage | browser `localStorage` |
-| Query stale time | 5 minutes |
-| Query retry count | 1 |
+| Variable | Used by | Default / example |
+| --- | --- | --- |
+| `JWT_SECRET` | Backend | Required; at least 32 bytes |
+| `MONGODB_URL` | Backend | `mongodb://localhost:27017` |
+| `DATABASE_NAME` | Backend | `farm_db` |
+| `CORS_ORIGINS` | Backend | `http://localhost:5173`; comma-separated for multiple origins |
+| `VITE_API_URL` | Frontend | `http://localhost:8000` |
 
-Running against anything other than localhost currently requires a source edit. Moving these to `MONGODB_URL` on the backend and `VITE_API_URL` on the frontend is a small change and the recommended next step.
+The API and frontend dev server still default to `http://localhost:8000` and `http://localhost:5173`, respectively. Vite exposes `VITE_*` values in the browser bundle, so do not put secrets in frontend env files.
 
 ## Testing
 
@@ -335,7 +333,6 @@ The current suite covers the main auth and CRUD paths, but there are still usefu
 | No refresh token flow | JWT sessions remain single-token and expire after one lifetime |
 | No password reset or email verification | Recovery and account lifecycle are still manual |
 | Auth token stored in `localStorage` | Simpler client integration, but not the strongest production security model |
-| Configuration hardcoded | Running against a remote database needs a code change |
 | No pagination | `GET /destinations` returns the entire collection |
 | Client side search only | Filtering cost and payload size grow with the collection |
 | No indexes beyond `_id` | Backend filtering would do a full collection scan |
@@ -349,10 +346,9 @@ Ordered by value:
 1. **Refresh tokens and session management** — long-lived auth flow with token refresh and revocation support.
 2. **Broader frontend tests** — auth provider tests, form tests, and user interaction coverage.
 3. **More backend failure cases** — invalid ids, missing documents, malformed payloads, and unavailable MongoDB.
-4. **Environment variables** — small, required before any deployment.
-5. **Pagination and server side filtering** — `?page=1&limit=20`, filtering by country, price range, and rating, backed by an index.
-6. **Image upload** — file upload with cloud storage and optimization, replacing URL references.
-7. **Deployment** — production Compose setup, Nginx reverse proxy, CI/CD.
+4. **Pagination and server side filtering** — `?page=1&limit=20`, filtering by country, price range, and rating, backed by an index.
+5. **Image upload** — file upload with cloud storage and optimization, replacing URL references.
+6. **Deployment** — production Compose setup, Nginx reverse proxy, CI/CD.
 
 ## Documentation
 

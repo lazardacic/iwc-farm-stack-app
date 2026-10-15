@@ -1,9 +1,9 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 
-MONGO_URL = "mongodb://localhost:27017"
+from config import DATABASE_NAME, MONGODB_URL
 
-client = AsyncIOMotorClient(MONGO_URL)
+client = AsyncIOMotorClient(MONGODB_URL)
 
-database = client.farm_db
+database = client[DATABASE_NAME]
 
 destination_collection = database.get_collection("destinations")

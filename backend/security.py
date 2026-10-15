@@ -1,15 +1,10 @@
-import os
 from datetime import datetime, timedelta, timezone
 
 import jwt
 from argon2 import PasswordHasher
-from dotenv import load_dotenv
+from config import JWT_SECRET
 
 
-load_dotenv()
-
-
-JWT_SECRET = os.environ.get("JWT_SECRET")
 if not JWT_SECRET:
     raise RuntimeError("JWT_SECRET environment variable is required")
 if len(JWT_SECRET.encode("utf-8")) < 32:

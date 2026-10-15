@@ -9,6 +9,7 @@ import pytest_asyncio
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
+from config import MONGODB_URL
 from database.dependencies import get_destination_collection, get_user_collection
 from main import app
 
@@ -18,7 +19,7 @@ TEST_DATABASE_NAME = "farm_test_db"
 
 @pytest_asyncio.fixture
 async def test_database():
-    client = AsyncIOMotorClient("mongodb://localhost:27017")
+    client = AsyncIOMotorClient(MONGODB_URL)
 
     database = client[TEST_DATABASE_NAME]
 

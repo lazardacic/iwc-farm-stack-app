@@ -1,11 +1,10 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 
-MONGO_URL = "mongodb://localhost:27017"
-DATABASE_NAME = "farm_db"
+from config import DATABASE_NAME, MONGODB_URL
 
 
 def create_mongo_client() -> AsyncIOMotorClient:
-    return AsyncIOMotorClient(MONGO_URL)
+    return AsyncIOMotorClient(MONGODB_URL)
 
 
 def get_database(client: AsyncIOMotorClient):

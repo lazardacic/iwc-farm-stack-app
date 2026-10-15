@@ -154,14 +154,15 @@ Relevant test groups:
 - destination API integration tests
 - frontend auth guard tests
 
-## Required environment variable
-Set this before running the application:
+## Environment variables
+Copy `backend/.env.example` to `backend/.env` for local development. The backend loads the file automatically. Configure:
 
-```bash
-JWT_SECRET=your_super_secure_secret_key_here
-```
+- `JWT_SECRET`: required token-signing secret, at least 32 bytes
+- `MONGODB_URL`: MongoDB connection string (defaults to `mongodb://localhost:27017`)
+- `DATABASE_NAME`: application database (defaults to `farm_db`)
+- `CORS_ORIGINS`: comma-separated allowed frontend origins (defaults to `http://localhost:5173`)
 
-For production, the secret should be long and random. For HS256, a key length of at least 32 bytes is recommended.
+For production, use a unique randomly generated secret. Never commit `.env` files or put secrets in frontend `VITE_*` variables.
 
 ## Example request flow
 
