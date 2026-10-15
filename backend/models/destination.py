@@ -19,3 +19,11 @@ class DestinationCreate(Destination):
 
 class DestinationResponse(Destination):
     id: str
+
+
+class DestinationPage(BaseModel):
+    items: list[DestinationResponse]
+    total: int
+    page: int
+    page_size: int
+    pages: int

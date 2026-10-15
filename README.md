@@ -63,7 +63,7 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - Client side validation with Zod, authoritative server side validation with Pydantic
 - Server state caching and invalidation with TanStack Query
 - One reusable form component shared by the create and edit pages
-- Client side search
+- Server side destination search and pagination
 - Light and dark theme with a persisted preference
 - Skeleton loaders, empty states, and error states
 - Toast notifications on success and failure
@@ -196,7 +196,7 @@ Authentication state lives in a global context provider, and protected pages are
 
 | Method | Endpoint | Description | Success |
 | --- | --- | --- | --- |
-| `GET` | `/destinations` | List all destinations | 200 |
+| `GET` | `/destinations?page=1&page_size=9&search=Japan` | Search and list a page of destinations | 200 |
 | `GET` | `/destinations/{id}` | Get one destination | 200 |
 | `POST` | `/destinations` | Create a destination | 200 |
 | `PUT` | `/destinations/{id}` | Update a destination | 200 |
@@ -222,6 +222,18 @@ Authentication state lives in a global context provider, and protected pages are
 | 500 | Unhandled backend or database error |
 
 400 and 404 are deliberately distinct: a malformed id is a client bug, a valid id with no match usually means the record was deleted elsewhere.
+
+The destination list response contains `items`, `total`, `page`, `page_size`, and `pages`. `page` must be at least 1, `page_size` must be between 1 and 100, and `search` matches destination titles and countries without case sensitivity.
+
+```json
+{
+  "items": [],
+  "total": 0,
+  "page": 1,
+  "page_size": 9,
+  "pages": 0
+}
+```
 
 ## Data model
 
@@ -333,8 +345,7 @@ The current suite covers the main auth and CRUD paths, but there are still usefu
 | No refresh token flow | JWT sessions remain single-token and expire after one lifetime |
 | No password reset or email verification | Recovery and account lifecycle are still manual |
 | Auth token stored in `localStorage` | Simpler client integration, but not the strongest production security model |
-| No pagination | `GET /destinations` returns the entire collection |
-| Client side search only | Filtering cost and payload size grow with the collection |
+| No advanced filters | Search currently matches title and country only |
 | No indexes beyond `_id` | Backend filtering would do a full collection scan |
 | Images referenced by URL | The app does not control image availability or size |
 | Local development only | No production build, reverse proxy, or deployment pipeline |
@@ -346,7 +357,7 @@ Ordered by value:
 1. **Refresh tokens and session management** — long-lived auth flow with token refresh and revocation support.
 2. **Broader frontend tests** — auth provider tests, form tests, and user interaction coverage.
 3. **More backend failure cases** — invalid ids, missing documents, malformed payloads, and unavailable MongoDB.
-4. **Pagination and server side filtering** — `?page=1&limit=20`, filtering by country, price range, and rating, backed by an index.
+4. **Advanced destination filters** — filter by price range and rating, backed by appropriate indexes.
 5. **Image upload** — file upload with cloud storage and optimization, replacing URL references.
 6. **Deployment** — production Compose setup, Nginx reverse proxy, CI/CD.
 

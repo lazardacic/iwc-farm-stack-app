@@ -1,10 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from motor.motor_asyncio import AsyncIOMotorCollection
 
 from database.dependencies import get_destination_collection
-from models.destination import DestinationCreate
+from models.destination import DestinationCreate, DestinationPage
 from models.user import UserResponse
 from routes.auth import CurrentUser, require_roles
 from services.destination_service import (
@@ -28,11 +28,14 @@ DestinationCollection = Annotated[
 ]
 
 
-@router.get("/")
+@router.get("/", response_model=DestinationPage)
 async def fetch_destinations(
     collection: DestinationCollection,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(9, ge=1, le=100),
+    search: str = Query("", max_length=100),
 ):
-    return await get_all_destinations(collection)
+    return await get_all_destinations(collection, page, page_size, search)
 
 
 @router.get("/{id}")

@@ -1,3 +1,6 @@
+import math
+import re
+
 from bson import ObjectId
 from bson.errors import InvalidId
 
@@ -23,13 +26,42 @@ def destination_serializer(destination) -> dict:
     }
 
 
-async def get_all_destinations(collection):
+async def get_all_destinations(
+    collection,
+    page: int = 1,
+    page_size: int = 9,
+    search: str = "",
+):
+    query = {}
+    search = search.strip()
+    if search:
+        escaped_search = re.escape(search)
+        query = {
+            "$or": [
+                {"title": {"$regex": escaped_search, "$options": "i"}},
+                {"country": {"$regex": escaped_search, "$options": "i"}},
+            ]
+        }
+
+    total = await collection.count_documents(query)
+    cursor = (
+        collection.find(query)
+        .sort("_id", 1)
+        .skip((page - 1) * page_size)
+        .limit(page_size)
+    )
     destinations = []
 
-    async for destination in collection.find():
+    async for destination in cursor:
         destinations.append(destination_serializer(destination))
 
-    return destinations
+    return {
+        "items": destinations,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": math.ceil(total / page_size),
+    }
 
 
 async def get_destination(collection, id: str):

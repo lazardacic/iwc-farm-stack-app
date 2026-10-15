@@ -26,7 +26,13 @@ async def test_get_destinations(test_app):
         response = await client.get("/destinations/")
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {
+        "items": [],
+        "total": 0,
+        "page": 1,
+        "page_size": 9,
+        "pages": 0,
+    }
 
 
 @pytest.mark.asyncio
@@ -59,9 +65,63 @@ async def test_get_destinations_with_data(
 
     result = response.json()
 
-    assert len(result) == 1
-    assert result[0]["title"] == "Tokyo Trip"
-    assert result[0]["country"] == "Japan"
+    assert len(result["items"]) == 1
+    assert result["total"] == 1
+    assert result["items"][0]["title"] == "Tokyo Trip"
+    assert result["items"][0]["country"] == "Japan"
+
+
+@pytest.mark.asyncio
+async def test_get_destinations_pagination_and_search(
+    test_app,
+    destination_collection,
+):
+    for title, country in [
+        ("Tokyo Trip", "Japan"),
+        ("Kyoto Trip", "Japan"),
+        ("Rome Trip", "Italy"),
+    ]:
+        await destination_collection.insert_one(
+            {
+                "title": title,
+                "country": country,
+                "description": "Test destination",
+                "price": 1000,
+                "rating": 4.5,
+                "image": "test.jpg",
+                "tags": [],
+                "featured": False,
+            }
+        )
+
+    transport = httpx.ASGITransport(app=test_app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(
+            "/destinations/?page=2&page_size=1&search=japan"
+        )
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["total"] == 2
+    assert result["page"] == 2
+    assert result["pages"] == 2
+    assert len(result["items"]) == 1
+    assert result["items"][0]["country"] == "Japan"
+
+
+@pytest.mark.asyncio
+async def test_get_destinations_rejects_invalid_pagination(test_app):
+    transport = httpx.ASGITransport(app=test_app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/destinations/?page=0")
+
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio

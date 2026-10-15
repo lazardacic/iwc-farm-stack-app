@@ -121,9 +121,11 @@ async def test_get_all_destinations(destination_collection):
         destination_collection
     )
 
-    assert len(result) == 2
-    assert result[0]["title"] == "Tokyo Trip"
-    assert result[1]["title"] == "Rome Trip"
+    assert len(result["items"]) == 2
+    assert result["total"] == 2
+    assert result["pages"] == 1
+    assert result["items"][0]["title"] == "Tokyo Trip"
+    assert result["items"][1]["title"] == "Rome Trip"
 
 
 @pytest.mark.asyncio

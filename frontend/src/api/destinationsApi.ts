@@ -1,8 +1,20 @@
 import axiosClient from "./axiosClient";
-import type { Destination } from "../types/destination";
+import type { Destination, DestinationPage } from "../types/destination";
 
-export const getAllDestinations = async (): Promise<Destination[]> => {
-  const response = await axiosClient.get("/destinations/");
+interface DestinationPageParams {
+  page: number;
+  pageSize: number;
+  search: string;
+}
+
+export const getAllDestinations = async ({
+  page,
+  pageSize,
+  search,
+}: DestinationPageParams): Promise<DestinationPage> => {
+  const response = await axiosClient.get("/destinations/", {
+    params: { page, page_size: pageSize, search },
+  });
   return response.data;
 };
 

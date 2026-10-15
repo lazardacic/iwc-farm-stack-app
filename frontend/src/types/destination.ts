@@ -9,3 +9,11 @@ export interface Destination {
   tags: string[];
   featured: boolean;
 }
+
+export interface DestinationPage {
+  items: Destination[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
