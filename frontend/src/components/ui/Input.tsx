@@ -6,12 +6,17 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
-const Input = ({ label, error, className, ...props }: InputProps) => {
+const Input = ({ label, error, id, className, ...props }: InputProps) => {
   return (
     <div className="space-y-2">
-      {label && <label className="block text-sm font-medium">{label}</label>}
+      {label && (
+        <label htmlFor={id} className="block text-sm font-medium">
+          {label}
+        </label>
+      )}
 
       <input
+        id={id}
         className={clsx(
           `
           w-full

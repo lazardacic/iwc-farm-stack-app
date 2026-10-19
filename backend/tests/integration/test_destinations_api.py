@@ -494,3 +494,141 @@ async def test_delete_destination_not_found(test_app, user_collection):
 @pytest.mark.asyncio
 async def test_test_database_isolated(destination_collection):
     assert destination_collection.database.name == "farm_test_db"
+
+
+async def insert_filter_fixtures(destination_collection):
+    await destination_collection.insert_many(
+        [
+            {
+                "title": "Tokyo Trip",
+                "country": "Japan",
+                "description": "Test destination",
+                "price": 2500,
+                "rating": 4.8,
+                "image": "test.jpg",
+                "tags": [],
+                "featured": True,
+            },
+            {
+                "title": "Kyoto Trip",
+                "country": "Japan",
+                "description": "Test destination",
+                "price": 900,
+                "rating": 3.9,
+                "image": "test.jpg",
+                "tags": [],
+                "featured": False,
+            },
+            {
+                "title": "Rome Trip",
+                "country": "Italy",
+                "description": "Test destination",
+                "price": 1500,
+                "rating": 4.5,
+                "image": "test.jpg",
+                "tags": [],
+                "featured": True,
+            },
+        ]
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("query", "expected_titles"),
+    [
+        ("country=Japan", ["Tokyo Trip", "Kyoto Trip"]),
+        ("min_price=1000&max_price=2000", ["Rome Trip"]),
+        ("min_rating=4.5", ["Tokyo Trip", "Rome Trip"]),
+        ("max_rating=4", ["Kyoto Trip"]),
+        ("featured=true", ["Tokyo Trip", "Rome Trip"]),
+        ("featured=false", ["Kyoto Trip"]),
+        ("country=Japan&featured=true&min_rating=4", ["Tokyo Trip"]),
+        ("search=trip&country=Italy", ["Rome Trip"]),
+        ("country=Spain", []),
+    ],
+)
+async def test_get_destinations_filters(
+    test_app,
+    destination_collection,
+    query,
+    expected_titles,
+):
+    await insert_filter_fixtures(destination_collection)
+
+    transport = httpx.ASGITransport(app=test_app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(f"/destinations/?{query}")
+
+    assert response.status_code == 200
+    result = response.json()
+    assert [item["title"] for item in result["items"]] == expected_titles
+    assert result["total"] == len(expected_titles)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "min_price=2000&max_price=1000",
+        "min_rating=4.5&max_rating=4",
+        "min_price=-1",
+        "min_rating=6",
+        "featured=maybe",
+    ],
+)
+async def test_get_destinations_rejects_invalid_filters(test_app, query):
+    transport = httpx.ASGITransport(app=test_app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(f"/destinations/?{query}")
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_get_destination_countries(test_app, destination_collection):
+    await insert_filter_fixtures(destination_collection)
+
+    transport = httpx.ASGITransport(app=test_app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/destinations/countries")
+
+    assert response.status_code == 200
+    assert response.json() == ["Italy", "Japan"]
+
+
+@pytest.mark.asyncio
+async def test_create_destination_rejects_out_of_range_rating(
+    test_app,
+    user_collection,
+):
+    headers = await make_auth_headers(user_collection, "rating@example.com")
+    transport = httpx.ASGITransport(app=test_app)
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/destinations/",
+            json={
+                "title": "Bad Rating",
+                "country": "Italy",
+                "description": "Test destination",
+                "price": 900,
+                "rating": 7,
+                "image": "test.jpg",
+            },
+            headers=headers,
+        )
+
+    assert response.status_code == 422

@@ -101,3 +101,19 @@ def test_destination_create_invalid_tags():
             image="paris.jpg",
             tags=["Europe", 123],
         )
+
+
+@pytest.mark.parametrize(
+    ("price", "rating"),
+    [(0, 4.5), (-10, 4.5), (500, -0.1), (500, 5.1)],
+)
+def test_destination_create_rejects_out_of_range_values(price, rating):
+    with pytest.raises(ValidationError):
+        DestinationCreate(
+            title="Paris",
+            country="France",
+            description="A beautiful city",
+            price=price,
+            rating=rating,
+            image="paris.jpg",
+        )

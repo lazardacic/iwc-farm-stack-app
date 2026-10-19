@@ -1,7 +1,18 @@
 import { useDeferredValue, useEffect, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
-import { getAllDestinations } from "../api/destinationsApi";
+import {
+  getAllDestinations,
+  getDestinationCountries,
+} from "../api/destinationsApi";
+import {
+  EMPTY_DESTINATION_FILTERS,
+  type DestinationFilters as DestinationFiltersValue,
+} from "../types/destination";
+import {
+  getPriceRangeError,
+  hasActiveFilters,
+} from "../utils/destinationFilters";
 
 import ErrorState from "../components/ui/ErrorState";
 import EmptyState from "../components/ui/EmptyState";
@@ -9,6 +20,7 @@ import SearchBar from "../components/ui/SearchBar";
 
 import DestinationCard from "../components/destination/DestinationCard";
 import DestinationCardSkeleton from "../components/destination/DestinationCardSkeleton";
+import DestinationFilters from "../components/destination/DestinationFilters";
 import Button from "../components/ui/Button";
 
 const PAGE_SIZE = 9;
@@ -16,7 +28,18 @@ const PAGE_SIZE = 9;
 const Home = () => {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState<DestinationFiltersValue>(
+    EMPTY_DESTINATION_FILTERS,
+  );
   const deferredSearch = useDeferredValue(search.trim());
+  const deferredFilters = useDeferredValue(filters);
+  const priceError = getPriceRangeError(filters);
+  const filtersActive = hasActiveFilters(filters);
+
+  const { data: countries = [] } = useQuery({
+    queryKey: ["destinations", "countries"],
+    queryFn: getDestinationCountries,
+  });
 
   const {
     data = { items: [], total: 0, page, page_size: PAGE_SIZE, pages: 0 },
@@ -25,14 +48,24 @@ const Home = () => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["destinations", { page, pageSize: PAGE_SIZE, search: deferredSearch }],
+    queryKey: [
+      "destinations",
+      {
+        page,
+        pageSize: PAGE_SIZE,
+        search: deferredSearch,
+        filters: deferredFilters,
+      },
+    ],
     queryFn: () =>
       getAllDestinations({
         page,
         pageSize: PAGE_SIZE,
         search: deferredSearch,
+        filters: deferredFilters,
       }),
     placeholderData: keepPreviousData,
+    enabled: !getPriceRangeError(deferredFilters),
   });
 
   useEffect(() => {
@@ -154,12 +187,44 @@ const Home = () => {
         />
       </div>
 
+      <DestinationFilters
+        filters={filters}
+        countries={countries}
+        priceError={priceError}
+        onChange={(nextFilters) => {
+          setFilters(nextFilters);
+          setPage(1);
+        }}
+        onReset={() => {
+          setFilters(EMPTY_DESTINATION_FILTERS);
+          setPage(1);
+        }}
+      />
+
       {/* Content */}
 
       {data.items.length === 0 ? (
         <EmptyState
           title="No destinations found"
-          description="Try changing your search query."
+          description={
+            filtersActive
+              ? "Try changing your search query or filters."
+              : "Try changing your search query."
+          }
+          action={
+            filtersActive ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFilters(EMPTY_DESTINATION_FILTERS);
+                  setPage(1);
+                }}
+              >
+                Clear filters
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <div

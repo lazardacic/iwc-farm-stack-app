@@ -7,6 +7,7 @@ from config import CORS_ORIGINS
 from database.connection import create_mongo_client, get_database
 from routes.auth import router as auth_router
 from routes.destinations import router as destination_router
+from services.destination_service import ensure_destination_indexes
 
 
 @asynccontextmanager
@@ -15,6 +16,8 @@ async def lifespan(app: FastAPI):
 
     app.state.mongo_client = client
     app.state.database = get_database(client)
+
+    await ensure_destination_indexes(app.state.database["destinations"])
 
     yield
 
