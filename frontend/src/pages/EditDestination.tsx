@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
 import DestinationForm from "../components/forms/DestinationForm";
@@ -19,6 +20,7 @@ const EditDestination = () => {
   const { id } = useParams();
 
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [destination, setDestination] = useState<Destination | null>(null);
 
@@ -64,6 +66,8 @@ const EditDestination = () => {
 
         tags: destination.tags,
       });
+
+      await queryClient.invalidateQueries({ queryKey: ["destinations"] });
 
       toast.success("Destination updated successfully");
 

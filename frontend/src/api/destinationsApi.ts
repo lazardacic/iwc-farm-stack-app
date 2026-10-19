@@ -3,6 +3,7 @@ import type {
   Destination,
   DestinationFilters,
   DestinationPage,
+  DestinationSort,
 } from "../types/destination";
 
 interface DestinationPageParams {
@@ -10,6 +11,7 @@ interface DestinationPageParams {
   pageSize: number;
   search: string;
   filters?: DestinationFilters;
+  sort?: DestinationSort;
 }
 
 export const toFilterParams = (filters?: DestinationFilters) => {
@@ -44,12 +46,14 @@ export const getAllDestinations = async ({
   pageSize,
   search,
   filters,
+  sort = "oldest",
 }: DestinationPageParams): Promise<DestinationPage> => {
   const response = await axiosClient.get("/destinations/", {
     params: {
       page,
       page_size: pageSize,
       search,
+      sort,
       ...toFilterParams(filters),
     },
   });

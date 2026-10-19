@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 
 class Destination(BaseModel):
@@ -19,6 +19,16 @@ class DestinationCreate(Destination):
 
 class DestinationResponse(Destination):
     id: str
+
+
+DestinationSort = Literal[
+    "oldest",
+    "newest",
+    "price_asc",
+    "price_desc",
+    "rating_desc",
+    "title_asc",
+]
 
 
 class DestinationFilters(BaseModel):

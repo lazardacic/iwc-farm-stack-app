@@ -1,4 +1,4 @@
-import { forwardRef, type TextareaHTMLAttributes } from "react";
+import { forwardRef, useId, type TextareaHTMLAttributes } from "react";
 import clsx from "clsx";
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -7,11 +7,15 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 }
 
 const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ label, error, className, ...props }, ref) => {
+  ({ label, error, id, className, ...props }, ref) => {
+    const generatedId = useId();
+    const textareaId = id ?? generatedId;
+
     return (
       <div className="flex w-full flex-col gap-2">
         {label && (
           <label
+            htmlFor={textareaId}
             className="
               text-sm
               font-medium
@@ -25,6 +29,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 
         <textarea
           ref={ref}
+          id={textareaId}
           className={clsx(
             `
             min-h-36

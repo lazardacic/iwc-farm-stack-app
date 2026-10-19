@@ -1,4 +1,4 @@
-import type { SelectHTMLAttributes } from "react";
+import { useId, type SelectHTMLAttributes } from "react";
 import clsx from "clsx";
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
@@ -6,16 +6,19 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 const Select = ({ label, id, className, children, ...props }: SelectProps) => {
+  const generatedId = useId();
+  const selectId = id ?? generatedId;
+
   return (
     <div className="space-y-2">
       {label && (
-        <label htmlFor={id} className="block text-sm font-medium">
+        <label htmlFor={selectId} className="block text-sm font-medium">
           {label}
         </label>
       )}
 
       <select
-        id={id}
+        id={selectId}
         className={clsx(
           `
           w-full

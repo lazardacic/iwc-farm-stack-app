@@ -4,7 +4,7 @@ import re
 from bson import ObjectId
 from bson.errors import InvalidId
 
-from models.destination import DestinationFilters
+from models.destination import DestinationFilters, DestinationSort
 
 
 def _parse_object_id(id: str) -> ObjectId:
@@ -26,6 +26,17 @@ def destination_serializer(destination) -> dict:
         "tags": destination["tags"],
         "featured": destination["featured"],
     }
+
+
+# Every sort ends with _id so equal values keep a stable order across pages.
+SORT_FIELDS = {
+    "oldest": [("_id", 1)],
+    "newest": [("_id", -1)],
+    "price_asc": [("price", 1), ("_id", 1)],
+    "price_desc": [("price", -1), ("_id", 1)],
+    "rating_desc": [("rating", -1), ("_id", 1)],
+    "title_asc": [("title", 1), ("_id", 1)],
+}
 
 
 def _range_condition(minimum, maximum) -> dict:
@@ -77,13 +88,14 @@ async def get_all_destinations(
     page_size: int = 9,
     search: str = "",
     filters: DestinationFilters | None = None,
+    sort: DestinationSort = "oldest",
 ):
     query = build_destination_query(search, filters)
 
     total = await collection.count_documents(query)
     cursor = (
         collection.find(query)
-        .sort("_id", 1)
+        .sort(SORT_FIELDS[sort])
         .skip((page - 1) * page_size)
         .limit(page_size)
     )

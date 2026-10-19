@@ -38,3 +38,15 @@ class UserPublic(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class UserRoleUpdate(BaseModel):
+    role: UserRole
+
+
+class UserPage(BaseModel):
+    items: list[UserPublic]
+    total: int
+    page: int
+    page_size: int
+    pages: int

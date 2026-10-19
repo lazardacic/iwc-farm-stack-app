@@ -18,6 +18,14 @@ export interface DestinationPage {
   pages: number;
 }
 
+export type DestinationSort =
+  | "oldest"
+  | "newest"
+  | "price_asc"
+  | "price_desc"
+  | "rating_desc"
+  | "title_asc";
+
 export type FeaturedFilter = "all" | "featured" | "regular";
 
 export interface DestinationFilters {

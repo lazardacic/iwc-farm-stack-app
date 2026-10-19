@@ -7,6 +7,7 @@ from config import CORS_ORIGINS
 from database.connection import create_mongo_client, get_database
 from routes.auth import router as auth_router
 from routes.destinations import router as destination_router
+from routes.users import router as user_router
 from services.destination_service import ensure_destination_indexes
 
 
@@ -36,6 +37,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(destination_router)
+app.include_router(user_router)
 
 
 @app.get("/")

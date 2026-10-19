@@ -12,7 +12,7 @@ import ThemeToggle from "./ThemeToggle";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
-  const { isAuthenticated, logout, user } = useAuth();
+  const { isAuthenticated, isAdmin, logout, user } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -81,6 +81,12 @@ const Navbar = () => {
           <NavLink to="/" className={linkClasses}>
             Home
           </NavLink>
+
+          {isAdmin && (
+            <NavLink to="/admin/users" className={linkClasses}>
+              Users
+            </NavLink>
+          )}
 
           {isAuthenticated ? (
             <>
@@ -196,6 +202,16 @@ const Navbar = () => {
             >
               Home
             </NavLink>
+
+            {isAdmin && (
+              <NavLink
+                to="/admin/users"
+                onClick={() => setOpen(false)}
+                className={linkClasses}
+              >
+                Users
+              </NavLink>
+            )}
 
             {isAuthenticated ? (
               <>

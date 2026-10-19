@@ -535,6 +535,85 @@ async def insert_filter_fixtures(destination_collection):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    ("sort", "expected_titles"),
+    [
+        ("oldest", ["Tokyo Trip", "Kyoto Trip", "Rome Trip"]),
+        ("newest", ["Rome Trip", "Kyoto Trip", "Tokyo Trip"]),
+        ("price_asc", ["Kyoto Trip", "Rome Trip", "Tokyo Trip"]),
+        ("price_desc", ["Tokyo Trip", "Rome Trip", "Kyoto Trip"]),
+        ("rating_desc", ["Tokyo Trip", "Rome Trip", "Kyoto Trip"]),
+        ("title_asc", ["Kyoto Trip", "Rome Trip", "Tokyo Trip"]),
+    ],
+)
+async def test_get_destinations_sort(
+    test_app,
+    destination_collection,
+    sort,
+    expected_titles,
+):
+    await insert_filter_fixtures(destination_collection)
+
+    transport = httpx.ASGITransport(app=test_app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(f"/destinations/?sort={sort}")
+
+    assert response.status_code == 200
+    assert [item["title"] for item in response.json()["items"]] == expected_titles
+
+
+@pytest.mark.asyncio
+async def test_get_destinations_sort_is_stable_across_pages(
+    test_app,
+    destination_collection,
+):
+    inserted = await destination_collection.insert_many(
+        [
+            {
+                "title": f"Same Price {index}",
+                "country": "Italy",
+                "description": "Test destination",
+                "price": 1000,
+                "rating": 4.5,
+                "image": "test.jpg",
+                "tags": [],
+                "featured": False,
+            }
+            for index in range(5)
+        ]
+    )
+
+    transport = httpx.ASGITransport(app=test_app)
+    seen_ids = []
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        for page in range(1, 4):
+            response = await client.get(
+                f"/destinations/?sort=price_asc&page={page}&page_size=2"
+            )
+            seen_ids.extend(item["id"] for item in response.json()["items"])
+
+    assert seen_ids == [str(id) for id in inserted.inserted_ids]
+
+
+@pytest.mark.asyncio
+async def test_get_destinations_rejects_unknown_sort(test_app):
+    transport = httpx.ASGITransport(app=test_app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/destinations/?sort=random")
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     ("query", "expected_titles"),
     [
         ("country=Japan", ["Tokyo Trip", "Kyoto Trip"]),

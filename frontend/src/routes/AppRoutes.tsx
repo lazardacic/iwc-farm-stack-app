@@ -4,6 +4,7 @@ import GuestRoute from "../components/auth/GuestRoute";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import MainLayout from "../components/layout/MainLayout";
 
+import AdminUsers from "../pages/AdminUsers";
 import Home from "../pages/Home";
 import DestinationDetails from "../pages/DestinationDetails";
 import CreateDestination from "../pages/CreateDestination";
@@ -28,6 +29,10 @@ const AppRoutes = () => {
         <Route element={<ProtectedRoute />}>
           <Route path="/create" element={<CreateDestination />} />
           <Route path="/edit/:id" element={<EditDestination />} />
+        </Route>
+
+        <Route element={<ProtectedRoute requireAdmin />}>
+          <Route path="/admin/users" element={<AdminUsers />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

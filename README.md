@@ -60,11 +60,14 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - Protected frontend routes for create and edit pages
 - Session-aware navigation and automatic logout on invalid or expired token
 - Admin-only UI actions for destructive operations
+- Admin-only `/admin/users` page for managing user roles
 - Client side validation with Zod, authoritative server side validation with Pydantic
 - Server state caching and invalidation with TanStack Query
 - One reusable form component shared by the create and edit pages
 - Server side destination search and pagination
 - Destination filters by country, price range, minimum rating, and featured status
+- Stable destination sorting by price, rating, title, or creation order
+- Admin user management: list and search users, change roles (admin-only on the backend)
 - Light and dark theme with a persisted preference
 - Skeleton loaders, empty states, and error states
 - Toast notifications on success and failure
@@ -165,24 +168,25 @@ If `pytest` is not available in your shell, run it through the virtual environme
 
 ```
 src/
-├── api/            axiosClient.ts, authApi.ts, destinationsApi.ts
+├── api/            axiosClient.ts, authApi.ts, destinationsApi.ts, usersApi.ts
 ├── assets/         logo.svg, images/
 ├── components/
 │   ├── auth/       ProtectedRoute.tsx, GuestRoute.tsx
 │   ├── ui/         Button, Input, Textarea, Card, Badge, Loader, Skeleton,
-│   │               Modal, SearchBar, EmptyState, ErrorState
+│   │               Modal, SearchBar, Select, Pagination, EmptyState, ErrorState
 │   ├── forms/      DestinationForm.tsx, AuthForm.tsx
-│   ├── destination/  DestinationCard.tsx, DestinationCardSkeleton.tsx
+│   ├── destination/  DestinationCard.tsx, DestinationCardSkeleton.tsx, DestinationFilters.tsx
 │   └── layout/     Navbar, Footer, MainLayout, ThemeToggle
 ├── context/        ThemeContext.tsx, AuthContext.tsx, AuthProvider.tsx
 ├── hooks/          useTheme.ts, useAuth.ts
 ├── pages/          Home, DestinationDetails, CreateDestination,
-│                   EditDestination, Login, Register, NotFound
+│                   EditDestination, AdminUsers, Login, Register, NotFound
 ├── providers/      QueryProvider.tsx
 ├── routes/         AppRoutes.tsx
-├── types/          auth.ts, destination.ts, destinationForm.ts
+├── types/          auth.ts, destination.ts, destinationForm.ts, user.ts
+├── utils/          destinationFilters.ts, apiError.ts
 ├── validation/     authSchema.ts, destinationSchema.ts
-├── test/           setup.ts
+├── test/           setup.ts, renderWithProviders.tsx
 ├── styles/         globals.css
 ├── App.tsx
 └── main.tsx
@@ -212,6 +216,15 @@ Authentication state lives in a global context provider, and protected pages are
 | `POST` | `/auth/login` | Authenticate and receive JWT | 200 |
 | `GET` | `/auth/me` | Return current authenticated user | 200 |
 
+### User management routes (admin only)
+
+| Method | Endpoint | Description | Success |
+| --- | --- | --- | --- |
+| `GET` | `/users?page=1&page_size=20&search=team` | Search and list users by email | 200 |
+| `PATCH` | `/users/{id}/role` | Change a user's role (`{"role": "admin"}`) | 200 |
+
+Every `/users` route requires an admin token: missing or invalid tokens return 401, non-admin users get 403. Admins cannot change their own role (400), which keeps at least one admin in place. Role changes take effect on the user's next request because the role is read from the database on every request. Password hashes are never returned.
+
 **Status codes**
 
 | Code | When |
@@ -235,8 +248,9 @@ Optional filters combine with search and with each other:
 | `min_price`, `max_price` | at least 0; `min_price` must not exceed `max_price` |
 | `min_rating`, `max_rating` | between 0 and 5; `min_rating` must not exceed `max_rating` |
 | `featured` | `true` or `false` |
+| `sort` | `oldest` (default), `newest`, `price_asc`, `price_desc`, `rating_desc`, `title_asc` |
 
-Invalid filter values return 422. The backend creates indexes on `country`, `price`, `rating`, and `featured` at startup.
+Invalid filter or sort values return 422. Every sort uses `_id` as a tiebreaker, so items with equal values keep the same order across pages. The backend creates indexes on `country`, `price`, `rating`, and `featured` at startup.
 
 ```json
 {
@@ -302,7 +316,7 @@ The backend includes automated tests for the MongoDB-backed data flow, auth flow
 - Service tests for create, read, update, and delete logic
 - API integration tests that run FastAPI against a separate MongoDB test database
 
-The frontend currently includes focused auth route guard tests and a production build check.
+The frontend includes tests for auth route guards, the destination list (loading, empty, error, pagination, sort, and filters), the destination and auth forms, the filter panel, and the admin users page, plus a production build check.
 
 Run the backend test suite from `backend/`:
 
@@ -316,7 +330,7 @@ If you are using the local virtual environment on Windows, the equivalent comman
 C:/Projects/iwc-farm-stack-app/.venv/Scripts/python.exe -m pytest -q
 ```
 
-Run the frontend auth guard tests from `frontend/`:
+Run the frontend tests from `frontend/`:
 
 ```bash
 npm run test
@@ -345,7 +359,7 @@ FastAPI dependency overrides are used to make API tests use the test database in
 
 The current suite covers the main auth and CRUD paths, but there are still useful additions for broader production readiness:
 
-- broader frontend tests for forms, auth provider behavior, and mutation flows
+- tests for auth provider behavior and the create/edit/delete pages
 - refresh token flow and logout handling
 - password reset / email verification flows
 - MongoDB connection failure or unavailable database scenarios

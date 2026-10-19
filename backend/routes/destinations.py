@@ -8,6 +8,7 @@ from models.destination import (
     DestinationCreate,
     DestinationFilters,
     DestinationPage,
+    DestinationSort,
 )
 from models.user import UserResponse
 from routes.auth import CurrentUser, require_roles
@@ -45,6 +46,7 @@ async def fetch_destinations(
     min_rating: float | None = Query(None, ge=0, le=5),
     max_rating: float | None = Query(None, ge=0, le=5),
     featured: bool | None = None,
+    sort: DestinationSort = "oldest",
 ):
     if min_price is not None and max_price is not None and min_price > max_price:
         raise HTTPException(
@@ -73,6 +75,7 @@ async def fetch_destinations(
         page_size,
         search,
         filters,
+        sort,
     )
 
 

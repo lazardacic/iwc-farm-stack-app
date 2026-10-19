@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
 import DestinationForm from "../components/forms/DestinationForm";
@@ -14,6 +15,7 @@ import Button from "../components/ui/Button";
 
 const CreateDestination = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [loading, setLoading] = useState(false);
 
@@ -26,6 +28,8 @@ const CreateDestination = () => {
         featured: false,
         tags: [],
       });
+
+      await queryClient.invalidateQueries({ queryKey: ["destinations"] });
 
       toast.success("Destination created successfully");
 

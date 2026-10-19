@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
 import { isAuthStatusError } from "../api/axiosClient";
@@ -21,6 +22,7 @@ const DestinationDetails = () => {
   const { isAdmin, isAuthenticated } = useAuth();
 
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [destination, setDestination] = useState<Destination | null>(null);
 
@@ -57,6 +59,8 @@ const DestinationDetails = () => {
 
     try {
       await deleteDestination(id);
+
+      await queryClient.invalidateQueries({ queryKey: ["destinations"] });
 
       toast.success("Destination deleted successfully");
 
