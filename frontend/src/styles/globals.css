@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Drive dark: utilities from the .dark class set by ThemeProvider instead of the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+.dark {
+  color-scheme: dark;
+}
+
 html {
   scroll-behavior: smooth;
 }

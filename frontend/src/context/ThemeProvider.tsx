@@ -14,7 +14,9 @@ const ThemeProvider = ({ children }: ThemeProviderProps) => {
       return savedTheme;
     }
 
-    return "light";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
   });
 
   useEffect(() => {
