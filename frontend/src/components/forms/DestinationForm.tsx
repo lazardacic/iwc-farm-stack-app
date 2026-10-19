@@ -1,4 +1,5 @@
-import { useForm } from "react-hook-form";
+import { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import type { DestinationFormValues } from "../../types/destinationForm";
@@ -8,6 +9,7 @@ import { destinationSchema } from "../../validation/destinationSchema";
 import Input from "../ui/Input";
 import Textarea from "../ui/Textarea";
 import Button from "../ui/Button";
+import ImageInput from "./ImageInput";
 
 interface DestinationFormProps {
   mode: "create" | "edit";
@@ -25,7 +27,9 @@ const DestinationForm = ({
   loading = false,
   onSubmit,
 }: DestinationFormProps) => {
+  const [uploading, setUploading] = useState(false);
   const {
+    control,
     register,
     handleSubmit,
     formState: { errors },
@@ -68,11 +72,17 @@ const DestinationForm = ({
         {...register("country")}
       />
 
-      <Input
-        label="Image URL"
-        placeholder="https://example.com/image.jpg"
-        error={errors.image?.message}
-        {...register("image")}
+      <Controller
+        name="image"
+        control={control}
+        render={({ field }) => (
+          <ImageInput
+            value={field.value}
+            onChange={field.onChange}
+            onUploadingChange={setUploading}
+            error={errors.image?.message}
+          />
+        )}
       />
 
       <Input
@@ -105,7 +115,7 @@ const DestinationForm = ({
 
       <Button
         type="submit"
-        disabled={loading}
+        disabled={loading || uploading}
         className="
           mt-4
         "

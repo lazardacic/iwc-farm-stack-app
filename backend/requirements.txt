@@ -4,3 +4,4 @@ pydantic
 PyJWT
 argon2-cffi
 python-dotenv
+cloudinary

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Desert">
+<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#efefef"/><stop offset="1" stop-color="#fbfbfb"/>
+</linearGradient></defs>
+<rect width="800" height="600" fill="url(#sky)"/>
+<circle cx="400" cy="240" r="90" fill="#ffffff" stroke="#e2e2e2" stroke-width="4"/>
+<polygon points="540,385 630,280 720,385" fill="#d3d3d3"/>
+<polygon points="630,280 720,385 660,385" fill="#c4c4c4"/>
+<path d="M0 400 Q200 330 420 390 T800 370 V600 H0Z" fill="#e2e2e2"/>
+<path d="M0 470 Q250 400 500 460 T800 440 V600 H0Z" fill="#cdcdcd"/>
+<g fill="#8e8e8e">
+<rect x="160" y="390" width="26" height="140" rx="13"/>
+<rect x="118" y="415" width="22" height="55" rx="11"/>
+<rect x="118" y="452" width="55" height="20" rx="10"/>
+<rect x="206" y="398" width="22" height="50" rx="11"/>
+<rect x="172" y="430" width="56" height="20" rx="10"/>
+</g>
+<path d="M0 545 Q300 485 600 535 T800 525 V600 H0Z" fill="#b4b4b4"/>
+</svg>

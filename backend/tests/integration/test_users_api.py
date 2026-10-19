@@ -5,7 +5,7 @@ from bson import ObjectId
 from security import create_access_token
 
 
-async def create_user(user_collection, email: str, role: str = "user"):
+async def create_user(user_collection, email: str, role: str = "subscriber"):
     result = await user_collection.insert_one({
         "email": email,
         "password_hash": "hashed-password",
@@ -121,7 +121,7 @@ async def test_demoted_admin_loses_access_immediately(test_app, user_collection)
         test_app,
         "PATCH",
         f"/users/{other_admin_id}/role",
-        json={"role": "user"},
+        json={"role": "subscriber"},
         headers=auth_headers(admin_id),
     )
     assert response.status_code == 200
@@ -146,7 +146,7 @@ async def test_regular_user_cannot_change_roles(test_app, user_collection):
 
     assert response.status_code == 403
     stored = await user_collection.find_one({"_id": ObjectId(user_id)})
-    assert stored["role"] == "user"
+    assert stored["role"] == "subscriber"
 
 
 @pytest.mark.asyncio
@@ -157,7 +157,7 @@ async def test_admin_cannot_change_own_role(test_app, user_collection):
         test_app,
         "PATCH",
         f"/users/{admin_id}/role",
-        json={"role": "user"},
+        json={"role": "subscriber"},
         headers=auth_headers(admin_id),
     )
 

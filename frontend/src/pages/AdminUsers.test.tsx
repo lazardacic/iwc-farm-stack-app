@@ -32,7 +32,7 @@ vi.mock("react-hot-toast", () => ({
 const usersPage = {
   items: [
     { id: "admin-1", email: "admin@example.com", role: "admin" },
-    { id: "user-1", email: "user@example.com", role: "user" },
+    { id: "user-1", email: "user@example.com", role: "subscriber" },
   ],
   total: 2,
   page: 1,
@@ -71,20 +71,20 @@ describe("AdminUsers", () => {
     updateUserRoleMock.mockResolvedValue({
       id: "user-1",
       email: "user@example.com",
-      role: "admin",
+      role: "editor",
     });
 
     renderWithProviders(<AdminUsers />);
 
     await screen.findByText("user@example.com");
-    await selectOption("Role for user@example.com", "admin");
+    await selectOption("Role for user@example.com", "Editor");
 
     await waitFor(() =>
-      expect(updateUserRoleMock).toHaveBeenCalledWith("user-1", "admin"),
+      expect(updateUserRoleMock).toHaveBeenCalledWith("user-1", "editor"),
     );
     await waitFor(() =>
       expect(toastSuccessMock).toHaveBeenCalledWith(
-        "user@example.com is now admin",
+        "user@example.com is now Editor",
       ),
     );
     await waitFor(() => expect(getUsersMock).toHaveBeenCalledTimes(2));
@@ -98,7 +98,7 @@ describe("AdminUsers", () => {
     renderWithProviders(<AdminUsers />);
 
     await screen.findByText("user@example.com");
-    await selectOption("Role for user@example.com", "admin");
+    await selectOption("Role for user@example.com", "Editor");
 
     await waitFor(() =>
       expect(toastErrorMock).toHaveBeenCalledWith(

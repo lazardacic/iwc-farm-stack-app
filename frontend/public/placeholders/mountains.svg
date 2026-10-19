@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Mountains">
+<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#efefef"/><stop offset="1" stop-color="#fbfbfb"/>
+</linearGradient></defs>
+<rect width="800" height="600" fill="url(#sky)"/>
+<circle cx="610" cy="150" r="56" fill="#ffffff" stroke="#e2e2e2" stroke-width="4"/>
+<path d="M0 420 L170 250 L280 360 L420 190 L560 340 L660 260 L800 380 V600 H0Z" fill="#d6d6d6"/>
+<path d="M420 190 L381 238 L401 231 L420 247 L440 232 L467 240Z" fill="#f7f7f7"/>
+<path d="M170 250 L141 279 L157 275 L172 286 L188 276 L203 283Z" fill="#f7f7f7"/>
+<path d="M0 470 L130 380 L250 460 L380 330 L520 450 L650 360 L800 460 V600 H0Z" fill="#b9b9b9"/>
+<path d="M380 330 L340 370 L360 364 L380 378 L400 364 L429 372Z" fill="#ececec"/>
+<path d="M0 525 Q200 470 400 525 T800 515 V600 H0Z" fill="#9c9c9c"/>
+</svg>

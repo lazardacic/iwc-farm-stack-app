@@ -20,7 +20,7 @@ const Register = () => {
       setLoading(true);
       await register(data);
       toast.success("Account created successfully");
-      navigate("/", { replace: true });
+      navigate("/welcome", { replace: true });
     } catch (error) {
       console.error(error);
 

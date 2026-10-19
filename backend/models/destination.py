@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field
+import re
+
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Literal, Optional
 
 
@@ -8,9 +10,21 @@ class Destination(BaseModel):
     description: str
     price: float = Field(..., gt=0)
     rating: float = Field(..., ge=0, le=5)
-    image: str
+    # Empty means "assign a placeholder" on create.
+    image: str = ""
     tags: List[str] = []
     featured: bool = False
+
+    @field_validator("image")
+    @classmethod
+    def image_must_be_safe(cls, value: str) -> str:
+        value = value.strip()
+        # Allow http(s) URLs and relative paths; reject javascript:, data: and other schemes.
+        if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", value) and not re.match(
+            r"^https?://", value
+        ):
+            raise ValueError("Image must be an http(s) URL or a relative path")
+        return value
 
 
 class DestinationCreate(Destination):
@@ -19,6 +33,7 @@ class DestinationCreate(Destination):
 
 class DestinationResponse(Destination):
     id: str
+    created_by: Optional[str] = None
 
 
 DestinationSort = Literal[

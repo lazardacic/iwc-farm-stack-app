@@ -4,6 +4,8 @@ import re
 from bson import ObjectId
 from bson.errors import InvalidId
 
+from models.user import LEGACY_ROLE_MAP, normalize_role
+
 
 def _parse_object_id(id: str) -> ObjectId:
     try:
@@ -16,7 +18,7 @@ def user_serializer(user) -> dict:
     return {
         "id": str(user["_id"]),
         "email": user["email"],
-        "role": user.get("role", "user"),
+        "role": normalize_role(user.get("role")),
     }
 
 
@@ -47,6 +49,17 @@ async def get_users(
         "page_size": page_size,
         "pages": math.ceil(total / page_size),
     }
+
+
+async def migrate_legacy_roles(collection) -> int:
+    migrated = 0
+    for legacy_role, role in LEGACY_ROLE_MAP.items():
+        result = await collection.update_many(
+            {"role": legacy_role},
+            {"$set": {"role": role}},
+        )
+        migrated += result.modified_count
+    return migrated
 
 
 async def update_user_role(collection, id: str, role: str):

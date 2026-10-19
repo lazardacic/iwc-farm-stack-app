@@ -16,13 +16,13 @@ def test_user_register_valid():
     assert user.password == "secret123"
 
 
-def test_user_register_default_role_is_user():
+def test_user_response_default_role_is_subscriber():
     user = UserResponse(
         id="123",
         email="user@example.com",
     )
 
-    assert user.role == "user"
+    assert user.role == "subscriber"
 
 
 def test_user_register_invalid_email():
@@ -59,12 +59,12 @@ def test_user_response_valid():
     user = UserResponse(
         id="123",
         email="user@example.com",
-        role="user",
+        role="editor",
     )
 
     assert user.id == "123"
     assert user.email == "user@example.com"
-    assert user.role == "user"
+    assert user.role == "editor"
 
 
 def test_user_in_db_requires_password_hash():

@@ -3,7 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from motor.motor_asyncio import AsyncIOMotorCollection
 
-from database.dependencies import get_destination_collection
+from database.dependencies import (
+    get_destination_collection,
+    get_image_storage,
+    get_upload_collection,
+)
 from models.destination import (
     DestinationCreate,
     DestinationFilters,
@@ -11,15 +15,22 @@ from models.destination import (
     DestinationSort,
 )
 from models.user import UserResponse
-from routes.auth import CurrentUser, require_roles
+from routes.auth import PublisherUser, require_roles
+from services.destination_images import (
+    random_placeholder,
+    release_image,
+    resolve_upload_public_id,
+)
 from services.destination_service import (
     get_all_destinations,
     get_destination_countries,
     get_destination,
+    get_destination_document,
     create_destination,
     update_destination,
     delete_destination,
 )
+from services.image_storage import ImageStorage
 
 
 router = APIRouter(
@@ -32,6 +43,13 @@ DestinationCollection = Annotated[
     AsyncIOMotorCollection,
     Depends(get_destination_collection),
 ]
+
+UploadCollection = Annotated[
+    AsyncIOMotorCollection,
+    Depends(get_upload_collection),
+]
+
+Storage = Annotated[ImageStorage, Depends(get_image_storage)]
 
 
 @router.get("/", response_model=DestinationPage)
@@ -114,16 +132,35 @@ AdminUser = Annotated[
 ]
 
 
+def can_edit_destination(user: UserResponse, destination: dict) -> bool:
+    return user.role == "admin" or destination.get("created_by") == user.id
+
+
+async def resolve_image(uploads, image: str, user: UserResponse) -> tuple[str, str | None]:
+    """Return the image to store and its storage id; blank images get a placeholder."""
+    if not image:
+        return random_placeholder(), None
+
+    try:
+        return image, await resolve_upload_public_id(uploads, image, user)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
 @router.post("/")
 async def add_destination(
     destination: DestinationCreate,
     collection: DestinationCollection,
-    current_user: CurrentUser,
+    uploads: UploadCollection,
+    current_user: PublisherUser,
 ):
-    return await create_destination(
-        collection,
-        destination.model_dump(),
+    data = destination.model_dump()
+    data["created_by"] = current_user.id
+    data["image"], data["image_public_id"] = await resolve_image(
+        uploads, data["image"], current_user
     )
+
+    return await create_destination(collection, data)
 
 
 @router.put("/{id}")
@@ -131,13 +168,45 @@ async def edit_destination(
     id: str,
     destination: DestinationCreate,
     collection: DestinationCollection,
-    current_user: CurrentUser,
+    uploads: UploadCollection,
+    storage: Storage,
+    current_user: PublisherUser,
 ):
+    try:
+        existing = await get_destination_document(collection, id)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid destination id",
+        )
+
+    if not existing:
+        raise HTTPException(
+            status_code=404,
+            detail="Destination not found",
+        )
+
+    if not can_edit_destination(current_user, existing):
+        raise HTTPException(
+            status_code=403,
+            detail="You can only edit destinations you created",
+        )
+
+    data = destination.model_dump()
+    previous_public_id = existing.get("image_public_id")
+
+    if data["image"] and data["image"] == existing.get("image"):
+        data["image_public_id"] = previous_public_id
+    else:
+        data["image"], data["image_public_id"] = await resolve_image(
+            uploads, data["image"], current_user
+        )
+
     try:
         updated = await update_destination(
             collection,
             id,
-            destination.model_dump(),
+            data,
         )
     except ValueError:
         raise HTTPException(
@@ -151,6 +220,9 @@ async def edit_destination(
             detail="Destination not found",
         )
 
+    if previous_public_id != data["image_public_id"]:
+        await release_image(storage, uploads, collection, previous_public_id)
+
     return updated
 
 
@@ -158,9 +230,12 @@ async def edit_destination(
 async def remove_destination(
     id: str,
     collection: DestinationCollection,
+    uploads: UploadCollection,
+    storage: Storage,
     current_user: AdminUser,
 ):
     try:
+        existing = await get_destination_document(collection, id)
         deleted = await delete_destination(
             collection,
             id,
@@ -176,5 +251,9 @@ async def remove_destination(
             status_code=404,
             detail="Destination not found",
         )
+
+    await release_image(
+        storage, uploads, collection, existing and existing.get("image_public_id")
+    )
 
     return deleted

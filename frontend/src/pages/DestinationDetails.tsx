@@ -12,14 +12,16 @@ import ErrorState from "../components/ui/ErrorState";
 import Skeleton from "../components/ui/Skeleton";
 import Modal from "../components/ui/Modal";
 
+import DestinationImage from "../components/destination/DestinationImage";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
+import { canEditDestination } from "../utils/permissions";
 
 const DestinationDetails = () => {
   const { id } = useParams();
-  const { isAdmin, isAuthenticated } = useAuth();
+  const { isAdmin, isAuthenticated, canPublish, user } = useAuth();
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -181,7 +183,7 @@ const DestinationDetails = () => {
               relative
             "
           >
-            <img
+            <DestinationImage
               src={destination.image}
               alt={destination.title}
               className="
@@ -367,16 +369,10 @@ const DestinationDetails = () => {
                 sm:flex-row
               "
             >
-              {isAuthenticated && (
+              {canEditDestination(user, destination) && (
                 <Button onClick={() => navigate(`/edit/${destination.id}`)}>
                   ✏ Edit
                 </Button>
-              )}
-
-              {!isAuthenticated && (
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Sign in to edit this destination.
-                </p>
               )}
 
               {isAdmin && (
@@ -385,9 +381,17 @@ const DestinationDetails = () => {
                 </Button>
               )}
 
-              {isAuthenticated && !isAdmin && (
+              {!isAuthenticated && (
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Delete is restricted to administrators.
+                  Sign in as an editor to manage destinations.
+                </p>
+              )}
+
+              {canPublish && !isAdmin && (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {canEditDestination(user, destination)
+                    ? "Only administrators can delete destinations."
+                    : "Editors can edit only the destinations they created."}
                 </p>
               )}
             </div>

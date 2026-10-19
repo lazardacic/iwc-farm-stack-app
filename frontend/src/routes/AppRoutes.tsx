@@ -12,6 +12,8 @@ import EditDestination from "../pages/EditDestination";
 import Login from "../pages/Login";
 import NotFound from "../pages/NotFound";
 import Register from "../pages/Register";
+import Welcome from "../pages/Welcome";
+import { PUBLISHER_ROLES } from "../utils/permissions";
 
 const AppRoutes = () => {
   return (
@@ -27,11 +29,15 @@ const AppRoutes = () => {
         </Route>
 
         <Route element={<ProtectedRoute />}>
+          <Route path="/welcome" element={<Welcome />} />
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={PUBLISHER_ROLES} />}>
           <Route path="/create" element={<CreateDestination />} />
           <Route path="/edit/:id" element={<EditDestination />} />
         </Route>
 
-        <Route element={<ProtectedRoute requireAdmin />}>
+        <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
           <Route path="/admin/users" element={<AdminUsers />} />
         </Route>
 

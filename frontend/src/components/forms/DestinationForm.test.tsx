@@ -20,9 +20,16 @@ const fillForm = (values: DestinationFormValues) => {
   fireEvent.change(screen.getByLabelText("Country"), {
     target: { value: values.country },
   });
-  fireEvent.change(screen.getByLabelText("Image URL"), {
-    target: { value: values.image },
-  });
+  if (values.image) {
+    if (!screen.queryByLabelText("Image URL")) {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Use an image URL instead" }),
+      );
+    }
+    fireEvent.change(screen.getByLabelText("Image URL"), {
+      target: { value: values.image },
+    });
+  }
   fireEvent.change(screen.getByLabelText("Price"), {
     target: { value: String(values.price) },
   });
@@ -45,10 +52,35 @@ describe("DestinationForm", () => {
     expect(
       await screen.findByText("Title must contain at least 3 characters"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Please enter a valid image URL")).toBeInTheDocument();
     expect(screen.getByText("Price must be greater than 0")).toBeInTheDocument();
     expect(
       screen.getByText("Description must contain at least 30 characters"),
+    ).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("allows submitting without an image so a placeholder is assigned", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(<DestinationForm mode="create" onSubmit={onSubmit} />);
+    fillForm({ ...validValues, image: "" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Destination" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    expect(onSubmit.mock.calls[0][0].image).toBe("");
+  });
+
+  it("rejects an image URL that is not http(s)", async () => {
+    const onSubmit = vi.fn();
+
+    render(<DestinationForm mode="create" onSubmit={onSubmit} />);
+    fillForm({ ...validValues, image: "javascript:alert(1)" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Destination" }));
+
+    expect(
+      await screen.findByText("Please enter a valid image URL"),
     ).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });

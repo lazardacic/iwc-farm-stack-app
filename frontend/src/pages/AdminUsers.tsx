@@ -12,6 +12,7 @@ import { getUsers, updateUserRole } from "../api/usersApi";
 import { useAuth } from "../hooks/useAuth";
 import type { UserRole } from "../types/user";
 import { getApiErrorMessage } from "../utils/apiError";
+import { ROLE_BADGES, ROLE_LABELS } from "../utils/permissions";
 
 import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
@@ -24,8 +25,9 @@ import Skeleton from "../components/ui/Skeleton";
 const PAGE_SIZE = 20;
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
-  { value: "user", label: "user" },
-  { value: "admin", label: "admin" },
+  { value: "subscriber", label: ROLE_LABELS.subscriber },
+  { value: "editor", label: ROLE_LABELS.editor },
+  { value: "admin", label: ROLE_LABELS.admin },
 ];
 
 const AdminUsers = () => {
@@ -46,7 +48,9 @@ const AdminUsers = () => {
     mutationFn: ({ id, role }: { id: string; role: UserRole }) =>
       updateUserRole(id, role),
     onSuccess: (updatedUser) => {
-      toast.success(`${updatedUser.email} is now ${updatedUser.role}`);
+      toast.success(
+        `${updatedUser.email} is now ${ROLE_LABELS[updatedUser.role]}`,
+      );
     },
     onError: (mutationError) => {
       if (!isAuthStatusError(mutationError)) {
@@ -134,8 +138,8 @@ const AdminUsers = () => {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant={user.role === "admin" ? "yellow" : "blue"}>
-                        {user.role}
+                      <Badge variant={ROLE_BADGES[user.role]}>
+                        {ROLE_LABELS[user.role]}
                       </Badge>
                     </td>
                     <td className="px-4 py-2">

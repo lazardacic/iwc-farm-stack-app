@@ -10,8 +10,14 @@ import pytest_asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from config import MONGODB_URL
-from database.dependencies import get_destination_collection, get_user_collection
+from database.dependencies import (
+    get_destination_collection,
+    get_image_storage,
+    get_upload_collection,
+    get_user_collection,
+)
 from main import app
+from tests.fakes import FakeImageStorage
 
 
 TEST_DATABASE_NAME = "farm_test_db"
@@ -55,7 +61,28 @@ async def user_collection(test_database):
 
 
 @pytest_asyncio.fixture
-async def test_app(destination_collection, user_collection):
+async def upload_collection(test_database):
+    collection = test_database["uploads"]
+
+    assert collection.database.name == TEST_DATABASE_NAME
+
+    yield collection
+
+    await collection.delete_many({})
+
+
+@pytest_asyncio.fixture
+async def image_storage():
+    return FakeImageStorage()
+
+
+@pytest_asyncio.fixture
+async def test_app(
+    destination_collection,
+    user_collection,
+    upload_collection,
+    image_storage,
+):
     def override_get_destination_collection():
         return destination_collection
 
@@ -68,6 +95,8 @@ async def test_app(destination_collection, user_collection):
     app.dependency_overrides[
         get_user_collection
     ] = override_get_user_collection
+    app.dependency_overrides[get_upload_collection] = lambda: upload_collection
+    app.dependency_overrides[get_image_storage] = lambda: image_storage
 
     yield app
 

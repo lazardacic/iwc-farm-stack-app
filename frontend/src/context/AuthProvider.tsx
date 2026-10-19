@@ -10,6 +10,7 @@ import {
 } from "../api/axiosClient";
 import { getCurrentUser, loginUser, registerUser } from "../api/authApi";
 import { AuthContext } from "./AuthContext";
+import { canPublish } from "../utils/permissions";
 
 import type { AuthUser, LoginPayload, RegisterPayload } from "../types/auth";
 
@@ -111,6 +112,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
         user,
         isAuthenticated: Boolean(user),
         isAdmin: user?.role === "admin",
+        canPublish: canPublish(user),
         isLoading,
         login,
         register,

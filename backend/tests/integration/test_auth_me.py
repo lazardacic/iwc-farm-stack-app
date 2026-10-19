@@ -12,7 +12,7 @@ async def test_auth_me_valid_token(test_app, user_collection):
     user = {
         "email": "me@example.com",
         "password_hash": "hashed-password",
-        "role": "user",
+        "role": "subscriber",
     }
     inserted = await user_collection.insert_one(user)
     token = create_access_token(str(inserted.inserted_id))
@@ -30,7 +30,7 @@ async def test_auth_me_valid_token(test_app, user_collection):
 
     assert response.status_code == 200
     assert response.json()["email"] == "me@example.com"
-    assert response.json()["role"] == "user"
+    assert response.json()["role"] == "subscriber"
     assert "password_hash" not in response.json()
 
 
@@ -70,7 +70,7 @@ async def test_auth_me_expired_token(test_app, user_collection):
     inserted = await user_collection.insert_one({
         "email": "expired@example.com",
         "password_hash": "hashed-password",
-        "role": "user",
+        "role": "subscriber",
     })
 
     expired_payload = {

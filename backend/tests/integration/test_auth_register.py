@@ -24,14 +24,14 @@ async def test_register_user_success(test_app, user_collection):
 
     body = response.json()
     assert body["email"] == "user@example.com"
-    assert body["role"] == "user"
+    assert body["role"] == "subscriber"
     assert "id" in body
     assert "password_hash" not in body
 
     stored = await user_collection.find_one({"email": "user@example.com"})
     assert stored is not None
     assert stored["password_hash"] != payload["password"]
-    assert stored["role"] == "user"
+    assert stored["role"] == "subscriber"
 
 
 @pytest.mark.asyncio
@@ -39,7 +39,7 @@ async def test_register_user_duplicate_email(test_app, user_collection):
     await user_collection.insert_one({
         "email": "user@example.com",
         "password_hash": "hashed-value",
-        "role": "user",
+        "role": "subscriber",
     })
 
     payload = {

@@ -51,7 +51,7 @@ describe("Home", () => {
     getAllDestinationsMock.mockReset();
     getDestinationCountriesMock.mockReset();
     getDestinationCountriesMock.mockResolvedValue(["Italy", "Japan"]);
-    useAuthMock.mockReturnValue({ isAuthenticated: false });
+    useAuthMock.mockReturnValue({ isAuthenticated: false, canPublish: false });
   });
 
   it("shows skeletons while the first page loads", () => {
@@ -136,8 +136,22 @@ describe("Home", () => {
     ).toBe(false);
   });
 
-  it("invites signed-in users to create the first destination", async () => {
-    useAuthMock.mockReturnValue({ isAuthenticated: true });
+  it("does not offer create to subscribers", async () => {
+    useAuthMock.mockReturnValue({ isAuthenticated: true, canPublish: false });
+    getAllDestinationsMock.mockResolvedValue(makePage([]));
+
+    renderWithProviders(<Home />);
+
+    expect(
+      await screen.findByText("Editors and admins can add destinations."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Create destination" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("invites publishers to create the first destination", async () => {
+    useAuthMock.mockReturnValue({ isAuthenticated: true, canPublish: true });
     getAllDestinationsMock.mockResolvedValue(makePage([]));
 
     renderWithProviders(<Home />);

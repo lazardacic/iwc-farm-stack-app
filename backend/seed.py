@@ -2,6 +2,7 @@ import asyncio
 import random
 
 from database.connection import create_mongo_client, get_database
+from services.destination_images import random_placeholder
 
 
 cities = [
@@ -64,7 +65,7 @@ for index in range(99):
         "description": random.choice(descriptions),
         "price": random.randint(500, 5000),
         "rating": round(random.uniform(3.5, 5.0), 1),
-        "image": f"https://picsum.photos/400/300?random={index + 1}",
+        "image": random_placeholder(),
         "tags": random.sample(all_tags, k=random.randint(2, 4)),
         "featured": random.choice([True, False]),
     }

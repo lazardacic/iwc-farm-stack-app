@@ -5,7 +5,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from motor.motor_asyncio import AsyncIOMotorCollection
 
 from database.dependencies import get_user_collection
-from models.user import TokenResponse, UserLogin, UserRegister, UserResponse
+from models.user import (
+    TokenResponse,
+    UserLogin,
+    UserRegister,
+    PUBLISHER_ROLES,
+    UserResponse,
+    normalize_role,
+)
 from security import create_access_token, decode_access_token, hash_password, verify_password
 
 
@@ -66,7 +73,7 @@ async def get_current_user(
     return UserResponse(
         id=str(user["_id"]),
         email=user["email"],
-        role=user["role"],
+        role=normalize_role(user.get("role")),
     )
 
 
@@ -91,7 +98,7 @@ async def register_user(
     user_payload = {
         "email": email,
         "password_hash": hash_password(user.password),
-        "role": "user",
+        "role": "subscriber",
     }
 
     result = await collection.insert_one(user_payload)
@@ -148,6 +155,12 @@ def require_roles(*roles: str):
         return current_user
 
     return role_checker
+
+
+PublisherUser = Annotated[
+    UserResponse,
+    Depends(require_roles(*PUBLISHER_ROLES)),
+]
 
 
 @router.get("/me", response_model=UserResponse)

@@ -1,7 +1,9 @@
+export type UserRole = "admin" | "editor" | "subscriber";
+
 export interface AuthUser {
   id: string;
   email: string;
-  role: "user" | "admin";
+  role: UserRole;
 }
 
 export interface LoginPayload {

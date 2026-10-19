@@ -1,6 +1,6 @@
 import type { AuthUser } from "./auth";
 
-export type UserRole = AuthUser["role"];
+export type { UserRole } from "./auth";
 
 export interface UserPage {
   items: AuthUser[];

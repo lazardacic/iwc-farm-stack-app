@@ -25,6 +25,7 @@ def destination_serializer(destination) -> dict:
         "image": destination["image"],
         "tags": destination["tags"],
         "featured": destination["featured"],
+        "created_by": destination.get("created_by"),
     }
 
 
@@ -123,6 +124,13 @@ async def ensure_destination_indexes(collection):
     await collection.create_index("price")
     await collection.create_index("rating")
     await collection.create_index("featured")
+
+
+async def get_destination_document(collection, id: str):
+    """Return the raw stored document, including internal fields such as image_public_id."""
+    object_id = _parse_object_id(id)
+
+    return await collection.find_one({"_id": object_id})
 
 
 async def get_destination(collection, id: str):

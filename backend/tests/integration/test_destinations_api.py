@@ -5,7 +5,7 @@ import pytest
 from security import create_access_token
 
 
-async def make_auth_headers(user_collection, email: str, role: str = "user"):
+async def make_auth_headers(user_collection, email: str, role: str = "editor"):
     user = await user_collection.insert_one({
         "email": email,
         "password_hash": "hashed-password",
@@ -312,7 +312,9 @@ async def test_update_destination(
     }
 
     result = await destination_collection.insert_one(data)
-    headers = await make_auth_headers(user_collection, "updater@example.com")
+    headers = await make_auth_headers(
+        user_collection, "updater@example.com", role="admin"
+    )
 
     destination_id = str(result.inserted_id)
 

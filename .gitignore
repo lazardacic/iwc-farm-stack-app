@@ -99,3 +99,8 @@ docker-compose.override.yml
 *.temp
 *.orig
 *.rej
+
+# =========================
+# Local image uploads (IMAGE_STORAGE=local)
+# =========================
+backend/media/

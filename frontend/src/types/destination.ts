@@ -8,6 +8,7 @@ export interface Destination {
   image: string;
   tags: string[];
   featured: boolean;
+  created_by?: string | null;
 }
 
 export interface DestinationPage {

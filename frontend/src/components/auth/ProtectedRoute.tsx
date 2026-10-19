@@ -3,13 +3,14 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import Loader from "../ui/Loader";
 
 import { useAuth } from "../../hooks/useAuth";
+import type { UserRole } from "../../types/auth";
 
 interface ProtectedRouteProps {
-  requireAdmin?: boolean;
+  allowedRoles?: UserRole[];
 }
 
-const ProtectedRoute = ({ requireAdmin = false }: ProtectedRouteProps) => {
-  const { isAuthenticated, isAdmin, isLoading } = useAuth();
+const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
+  const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -20,8 +21,8 @@ const ProtectedRoute = ({ requireAdmin = false }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (requireAdmin && !isAdmin) {
-    return <Navigate to="/" replace />;
+  if (allowedRoles && (!user || !allowedRoles.includes(user.role))) {
+    return <Navigate to="/welcome" replace />;
   }
 
   return <Outlet />;

@@ -6,13 +6,15 @@ import { FiMenu, FiX, FiPlus } from "react-icons/fi";
 
 import { useAuth } from "../../hooks/useAuth";
 
+import { ROLE_BADGES, ROLE_LABELS } from "../../utils/permissions";
+
 import Badge from "../ui/Badge";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
-  const { isAuthenticated, isAdmin, logout, user } = useAuth();
+  const { isAuthenticated, isAdmin, canPublish, logout, user } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -90,36 +92,45 @@ const Navbar = () => {
 
           {isAuthenticated ? (
             <>
-              <Link
-                to="/create"
-                className="
-                  flex
-                  items-center
-                  gap-2
+              {canPublish && (
+                <Link
+                  to="/create"
+                  className="
+                    flex
+                    items-center
+                    gap-2
 
-                  rounded-xl
+                    rounded-xl
 
-                  bg-blue-600
-                  px-4
-                  py-2
+                    bg-blue-600
+                    px-4
+                    py-2
 
-                  font-medium
-                  text-white
+                    font-medium
+                    text-white
 
-                  transition
+                    transition
 
-                  hover:bg-blue-700
-                "
+                    hover:bg-blue-700
+                  "
+                >
+                  <FiPlus />
+                  Create
+                </Link>
+              )}
+
+              <NavLink
+                to="/welcome"
+                className="text-sm text-slate-500 transition hover:text-blue-600 dark:text-slate-400"
               >
-                <FiPlus />
-                Create
-              </Link>
-
-              <span className="text-sm text-slate-500 dark:text-slate-400">
                 {user?.email}
-              </span>
+              </NavLink>
 
-              {user?.role === "admin" && <Badge variant="yellow">Admin</Badge>}
+              {user && (
+                <Badge variant={ROLE_BADGES[user.role]}>
+                  {ROLE_LABELS[user.role]}
+                </Badge>
+              )}
 
               <button
                 className="font-medium text-slate-600 transition hover:text-blue-600 dark:text-slate-300"
@@ -215,19 +226,31 @@ const Navbar = () => {
 
             {isAuthenticated ? (
               <>
+                {canPublish && (
+                  <NavLink
+                    to="/create"
+                    onClick={() => setOpen(false)}
+                    className={linkClasses}
+                  >
+                    Create Destination
+                  </NavLink>
+                )}
+
                 <NavLink
-                  to="/create"
+                  to="/welcome"
                   onClick={() => setOpen(false)}
                   className={linkClasses}
                 >
-                  Create Destination
+                  {user?.email}
                 </NavLink>
 
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {user?.email}
-                </p>
-
-                {user?.role === "admin" && <Badge variant="yellow">Admin</Badge>}
+                {user && (
+                  <div>
+                    <Badge variant={ROLE_BADGES[user.role]}>
+                      {ROLE_LABELS[user.role]}
+                    </Badge>
+                  </div>
+                )}
 
                 <button
                   className="text-left text-slate-600 transition hover:text-blue-600 dark:text-slate-300"

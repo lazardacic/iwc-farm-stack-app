@@ -55,12 +55,16 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - REST API with automatic OpenAPI documentation at `/docs`
 - JWT-based authentication with register/login flow
 - Current-user endpoint and role-based access control
-- Admin-only protected destination deletion and mutation rules
+- Three roles: `admin`, `editor` and `subscriber`, enforced on the backend
+- Destination ownership: editors edit only what they created; only admins delete
 - Frontend login/register pages with persistent session state
 - Protected frontend routes for create and edit pages
 - Session-aware navigation and automatic logout on invalid or expired token
 - Admin-only UI actions for destructive operations
 - Admin-only `/admin/users` page for managing user roles
+- Welcome page that shows each signed-in user their role and what it allows
+- Image upload (JPEG, PNG, WebP up to 5 MB) to local storage or Cloudinary, with preview
+- Bundled grayscale placeholder images, assigned at random when a destination has no image
 - Client side validation with Zod, authoritative server side validation with Pydantic
 - Server state caching and invalidation with TanStack Query
 - One reusable form component shared by the create and edit pages
@@ -156,7 +160,20 @@ python seed_users.py
 
 This creates:
 - `admin@example.com` / `admin1234`
-- `user@example.com` / `user12345`
+- `editor@example.com` / `editor1234`
+- `subscriber@example.com` / `subscriber1234`
+
+### Roles
+
+| Action | Admin | Editor | Subscriber |
+| --- | --- | --- | --- |
+| Browse destinations, see the welcome page | yes | yes | yes |
+| Create destinations and upload images | yes | yes | no |
+| Edit destinations | all | only their own | no |
+| Delete destinations | yes | no | no |
+| List users and change roles | yes | no | no |
+
+New accounts start as `subscriber`. Accounts stored with the old `user` role are migrated to `subscriber` when the backend starts. Destinations created before ownership existed have no owner, so only admins can edit them.
 
 ### Troubleshooting
 
@@ -204,9 +221,19 @@ Authentication state lives in a global context provider, and protected pages are
 | `GET` | `/destinations?page=1&page_size=9&search=Japan` | Search, filter, and list a page of destinations | 200 |
 | `GET` | `/destinations/countries` | List distinct destination countries | 200 |
 | `GET` | `/destinations/{id}` | Get one destination | 200 |
-| `POST` | `/destinations` | Create a destination | 200 |
-| `PUT` | `/destinations/{id}` | Update a destination | 200 |
-| `DELETE` | `/destinations/{id}` | Delete a destination | 200 |
+| `POST` | `/destinations` | Create a destination (admin, editor) | 200 |
+| `PUT` | `/destinations/{id}` | Update a destination (admin, or the editor who created it) | 200 |
+| `DELETE` | `/destinations/{id}` | Delete a destination (admin) | 200 |
+
+### Image routes
+
+| Method | Endpoint | Description | Success |
+| --- | --- | --- | --- |
+| `POST` | `/images` | Upload one image as multipart field `file` (admin, editor); returns `{"url": "..."}` | 201 |
+
+The backend checks the file content, not its name or declared type: JPEG, PNG and WebP up to 5 MB are accepted (otherwise 415, 413, or 400 for an empty file). Each upload is recorded with its uploader. A destination may use an uploaded image only if the same user uploaded it, or the user is an admin (otherwise 403). When a destination's image is replaced or removed, or the destination is deleted, the old upload is deleted unless another destination still uses it.
+
+A destination saved with an empty `image` gets one of the bundled placeholders (`/placeholders/*.svg`, served by the frontend). Image values must be an `http(s)` URL or a relative path; `javascript:`, `data:` and other schemes return 422.
 
 ### Auth routes
 
@@ -221,7 +248,7 @@ Authentication state lives in a global context provider, and protected pages are
 | Method | Endpoint | Description | Success |
 | --- | --- | --- | --- |
 | `GET` | `/users?page=1&page_size=20&search=team` | Search and list users by email | 200 |
-| `PATCH` | `/users/{id}/role` | Change a user's role (`{"role": "admin"}`) | 200 |
+| `PATCH` | `/users/{id}/role` | Change a user's role to `admin`, `editor` or `subscriber` | 200 |
 
 Every `/users` route requires an admin token: missing or invalid tokens return 401, non-admin users get 403. Admins cannot change their own role (400), which keeps at least one admin in place. Role changes take effect on the user's next request because the role is read from the database on every request. Password hashes are never returned.
 
@@ -276,7 +303,9 @@ A destination is one self contained document. No joins, no transformation layer 
   "price": 1499,
   "rating": 4.8,
   "featured": true,
-  "tags": ["summer", "island"]
+  "tags": ["summer", "island"],
+  "created_by": "685fa3c2e1b40a7d3c9f1d11",
+  "image_public_id": null
 }
 ```
 
@@ -286,11 +315,13 @@ A destination is one self contained document. No joins, no transformation layer 
 | `title` | string | yes |
 | `country` | string | yes |
 | `description` | string | yes |
-| `image` | string (URL) | yes |
+| `image` | string: `http(s)` URL or relative path | no; empty gets a placeholder |
 | `price` | number (greater than 0) | yes |
 | `rating` | number (0 to 5) | yes |
 | `featured` | boolean | no |
 | `tags` | string[] | no |
+| `created_by` | string (user id) | set by the backend on create |
+| `image_public_id` | string | internal; set when `image` is one of our uploads, never returned |
 
 ## Configuration
 
@@ -303,6 +334,9 @@ Backend settings are read from `backend/.env`; frontend settings are read from `
 | `DATABASE_NAME` | Backend | `farm_db` |
 | `CORS_ORIGINS` | Backend | `http://localhost:5173`; comma-separated for multiple origins |
 | `VITE_API_URL` | Frontend | `http://localhost:8000` |
+| `IMAGE_STORAGE` | Backend | `local` (files in `backend/media`, served at `/media`) or `cloudinary` |
+| `API_PUBLIC_URL` | Backend | `http://localhost:8000`; base for links to locally stored images |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Backend | Required only with `IMAGE_STORAGE=cloudinary`; the backend refuses to start if one is missing |
 
 The API and frontend dev server still default to `http://localhost:8000` and `http://localhost:5173`, respectively. Vite exposes `VITE_*` values in the browser bundle, so do not put secrets in frontend env files.
 
@@ -374,7 +408,8 @@ The current suite covers the main auth and CRUD paths, but there are still usefu
 | Auth token stored in `localStorage` | Simpler client integration, but not the strongest production security model |
 | Filters are not in the URL | Filtered views cannot be bookmarked or shared yet |
 | Search uses unanchored regex | Text search still scans the collection; filters use indexes |
-| Images referenced by URL | The app does not control image availability or size |
+| Uploads that are never saved to a destination stay in storage | Orphaned files need a periodic cleanup job |
+| Uploaded images are not resized | Large photos are served at full size |
 | Local development only | No production build, reverse proxy, or deployment pipeline |
 
 ## Roadmap
@@ -384,8 +419,7 @@ Ordered by value:
 1. **Refresh tokens and session management** — long-lived auth flow with token refresh and revocation support.
 2. **Broader frontend tests** — auth provider tests, form tests, and user interaction coverage.
 3. **More backend failure cases** — invalid ids, missing documents, malformed payloads, and unavailable MongoDB.
-4. **Image upload** — file upload with cloud storage and optimization, replacing URL references.
-5. **Deployment** — production Compose setup, Nginx reverse proxy, CI/CD.
+4. **Deployment** — production Compose setup, Nginx reverse proxy, CI/CD.
 
 ## Documentation
 

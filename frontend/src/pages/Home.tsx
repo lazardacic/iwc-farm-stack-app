@@ -52,7 +52,7 @@ const gridClasses = `
 `;
 
 const Home = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, canPublish } = useAuth();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<DestinationSort>("oldest");
@@ -154,17 +154,21 @@ const Home = () => {
         <EmptyState
           title="No destinations yet"
           description={
-            isAuthenticated
+            canPublish
               ? "Add the first destination to get started."
-              : "Sign in to add the first destination."
+              : isAuthenticated
+                ? "Editors and admins can add destinations."
+                : "Sign in to add the first destination."
           }
           action={
-            <Link
-              to={isAuthenticated ? "/create" : "/login"}
-              className="font-medium text-blue-600 hover:text-blue-700"
-            >
-              {isAuthenticated ? "Create destination" : "Sign in"}
-            </Link>
+            canPublish || !isAuthenticated ? (
+              <Link
+                to={canPublish ? "/create" : "/login"}
+                className="font-medium text-blue-600 hover:text-blue-700"
+              >
+                {canPublish ? "Create destination" : "Sign in"}
+              </Link>
+            ) : undefined
           }
         />
       );

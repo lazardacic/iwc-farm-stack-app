@@ -6,6 +6,7 @@ export interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  canPublish: boolean;
   isLoading: boolean;
   login: (payload: LoginPayload) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;

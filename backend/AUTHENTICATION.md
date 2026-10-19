@@ -23,8 +23,9 @@ Relevant files:
 The user schema includes:
 - email validation via Pydantic `EmailStr`
 - password minimum length
-- default role: `user`
-- `UserRole` as literal union: `"user" | "admin"`
+- default role: `subscriber`
+- `UserRole` as literal union: `"admin" | "editor" | "subscriber"`
+- legacy `user` roles are read as `subscriber` and migrated at startup
 
 Defined in:
 - [backend/models/user.py](./models/user.py)
@@ -134,12 +135,13 @@ Collections used:
 - `users`
 - `destinations`
 
-For local development, the project also includes a helper script that seeds two users into the `users` collection:
+For local development, the project also includes a helper script that seeds three users (admin, editor, subscriber) into the `users` collection:
 - [backend/seed_users.py](./seed_users.py)
 
 Development users created by that script:
 - `admin@example.com` / `admin1234`
-- `user@example.com` / `user12345`
+- `editor@example.com` / `editor1234`
+- `subscriber@example.com` / `subscriber1234`
 
 ## Testing
 The backend uses a test database named `farm_test_db` and overrides dependency injections in tests.
@@ -214,8 +216,8 @@ Authorization: Bearer <admin-jwt>
 2. The frontend stores the returned access token in `localStorage`.
 3. Axios automatically attaches the token to protected requests.
 4. On app startup, the frontend calls `GET /auth/me` to restore the current user.
-5. Protected frontend routes allow access to create and edit pages only when a user is authenticated.
-6. Admin-only destructive UI actions are shown only when the current user role is `admin`.
+5. Protected frontend routes take an `allowedRoles` list: create and edit pages allow `admin` and `editor`, the users page allows `admin`, and the welcome page allows any signed-in user. Others are redirected to `/welcome`.
+6. The Edit button shows for admins and for the editor who created the destination; Delete shows only for admins. The backend enforces the same rules.
 7. If the backend returns `401`, the frontend clears the token, resets auth state, and redirects the user back to login.
 8. If the backend returns `403`, the frontend shows a forbidden message and keeps the current session.
 

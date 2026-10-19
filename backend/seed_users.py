@@ -18,9 +18,14 @@ DEV_USERS = [
         "role": "admin",
     },
     {
-        "email": "user@example.com",
-        "password": "user12345",
-        "role": "user",
+        "email": "editor@example.com",
+        "password": "editor1234",
+        "role": "editor",
+    },
+    {
+        "email": "subscriber@example.com",
+        "password": "subscriber1234",
+        "role": "subscriber",
     },
 ]
 
@@ -47,7 +52,8 @@ async def seed_users():
 
         print("Development users are ready.")
         print("Admin: admin@example.com / admin1234")
-        print("User: user@example.com / user12345")
+        print("Editor: editor@example.com / editor1234")
+        print("Subscriber: subscriber@example.com / subscriber1234")
     finally:
         client.close()
 

@@ -9,7 +9,15 @@ export const destinationSchema = z.object({
     .string()
     .min(30, "Description must contain at least 30 characters"),
 
-  image: z.string().url("Please enter a valid image URL"),
+  // Empty lets the backend assign a placeholder; relative paths cover bundled placeholders.
+  image: z
+    .string()
+    .trim()
+    .refine(
+      (value) =>
+        value === "" || value.startsWith("/") || /^https?:\/\/\S+$/.test(value),
+      "Please enter a valid image URL",
+    ),
 
   price: z
     .number({

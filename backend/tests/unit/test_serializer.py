@@ -18,6 +18,7 @@ def test_destination_serializer():
         "image": "paris.jpg",
         "tags": ["Europe", "City"],
         "featured": True,
+        "created_by": "user-1",
     }
 
     result = destination_serializer(destination)
@@ -32,6 +33,7 @@ def test_destination_serializer():
         "image": "paris.jpg",
         "tags": ["Europe", "City"],
         "featured": True,
+        "created_by": "user-1",
     }
 
 
@@ -62,6 +64,7 @@ def test_destination_serializer_with_empty_values():
         "image": "",
         "tags": [],
         "featured": False,
+        "created_by": None,
     }
 
 

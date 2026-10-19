@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 
+import DestinationImage from "./DestinationImage";
+
 import type { Destination } from "../../types/destination";
 
 import Card from "../ui/Card";
@@ -22,7 +24,7 @@ const DestinationCard = ({ destination }: Props) => {
       {/* Image */}
 
       <div className="relative overflow-hidden">
-        <img
+        <DestinationImage
           src={destination.image}
           alt={destination.title}
           className="
