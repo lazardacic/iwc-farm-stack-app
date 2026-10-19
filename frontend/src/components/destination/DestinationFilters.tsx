@@ -17,7 +17,19 @@ interface DestinationFiltersProps {
   onReset: () => void;
 }
 
-const RATING_OPTIONS = ["3", "3.5", "4", "4.5"];
+const RATING_OPTIONS = [
+  { value: "", label: "Any rating" },
+  ...["3", "3.5", "4", "4.5"].map((rating) => ({
+    value: rating,
+    label: `${rating}+`,
+  })),
+];
+
+const FEATURED_OPTIONS: { value: FeaturedFilter; label: string }[] = [
+  { value: "all", label: "All destinations" },
+  { value: "featured", label: "Featured only" },
+  { value: "regular", label: "Not featured" },
+];
 
 const DestinationFilters = ({
   filters,
@@ -55,18 +67,14 @@ const DestinationFilters = ({
         "
       >
         <Select
-          id="filter-country"
           label="Country"
           value={filters.country}
-          onChange={(event) => update({ country: event.target.value })}
-        >
-          <option value="">All countries</option>
-          {countries.map((country) => (
-            <option key={country} value={country}>
-              {country}
-            </option>
-          ))}
-        </Select>
+          options={[
+            { value: "", label: "All countries" },
+            ...countries.map((country) => ({ value: country, label: country })),
+          ]}
+          onChange={(country) => update({ country })}
+        />
 
         <Input
           id="filter-min-price"
@@ -90,31 +98,18 @@ const DestinationFilters = ({
         />
 
         <Select
-          id="filter-min-rating"
           label="Rating"
           value={filters.minRating}
-          onChange={(event) => update({ minRating: event.target.value })}
-        >
-          <option value="">Any rating</option>
-          {RATING_OPTIONS.map((rating) => (
-            <option key={rating} value={rating}>
-              {rating}+
-            </option>
-          ))}
-        </Select>
+          options={RATING_OPTIONS}
+          onChange={(minRating) => update({ minRating })}
+        />
 
         <Select
-          id="filter-featured"
           label="Featured"
           value={filters.featured}
-          onChange={(event) =>
-            update({ featured: event.target.value as FeaturedFilter })
-          }
-        >
-          <option value="all">All destinations</option>
-          <option value="featured">Featured only</option>
-          <option value="regular">Not featured</option>
-        </Select>
+          options={FEATURED_OPTIONS}
+          onChange={(featured) => update({ featured })}
+        />
       </div>
 
       {hasActiveFilters(filters) && (

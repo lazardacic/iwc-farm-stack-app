@@ -250,17 +250,12 @@ const Home = () => {
             <Select
               aria-label="Sort by"
               value={sort}
-              onChange={(event) => {
-                setSort(event.target.value as DestinationSort);
+              options={SORT_OPTIONS}
+              onChange={(nextSort) => {
+                setSort(nextSort);
                 setPage(1);
               }}
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
+            />
           </div>
         </div>
       </div>

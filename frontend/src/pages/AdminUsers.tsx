@@ -23,6 +23,11 @@ import Skeleton from "../components/ui/Skeleton";
 
 const PAGE_SIZE = 20;
 
+const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+  { value: "user", label: "user" },
+  { value: "admin", label: "admin" },
+];
+
 const AdminUsers = () => {
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
@@ -137,21 +142,18 @@ const AdminUsers = () => {
                       <Select
                         aria-label={`Role for ${user.email}`}
                         value={user.role}
+                        options={ROLE_OPTIONS}
                         disabled={isSelf || pendingUserId === user.id}
                         title={
                           isSelf ? "You cannot change your own role" : undefined
                         }
                         className="py-2"
-                        onChange={(event) =>
-                          roleMutation.mutate({
-                            id: user.id,
-                            role: event.target.value as UserRole,
-                          })
-                        }
-                      >
-                        <option value="user">user</option>
-                        <option value="admin">admin</option>
-                      </Select>
+                        onChange={(role) => {
+                          if (role !== user.role) {
+                            roleMutation.mutate({ id: user.id, role });
+                          }
+                        }}
+                      />
                     </td>
                   </tr>
                 );

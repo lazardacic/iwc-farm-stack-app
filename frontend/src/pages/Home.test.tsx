@@ -3,6 +3,7 @@ import { vi } from "vitest";
 
 import Home from "./Home";
 import { renderWithProviders } from "../test/renderWithProviders";
+import { selectOption } from "../test/selectOption";
 import type { Destination, DestinationPage } from "../types/destination";
 
 const getAllDestinationsMock = vi.fn();
@@ -99,13 +100,9 @@ describe("Home", () => {
     renderWithProviders(<Home />);
     await screen.findByText("Tokyo Trip");
 
-    fireEvent.change(screen.getByLabelText("Sort by"), {
-      target: { value: "price_desc" },
-    });
-    await screen.findByRole("option", { name: "Japan" });
-    fireEvent.change(screen.getByLabelText("Country"), {
-      target: { value: "Japan" },
-    });
+    await selectOption("Sort by", "Price: high to low");
+    await waitFor(() => expect(getDestinationCountriesMock).toHaveBeenCalled());
+    await selectOption("Country", "Japan");
 
     await waitFor(() =>
       expect(lastRequest()).toMatchObject({

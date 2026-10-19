@@ -4,6 +4,7 @@ import { vi } from "vitest";
 
 import AdminUsers from "./AdminUsers";
 import { renderWithProviders } from "../test/renderWithProviders";
+import { selectOption } from "../test/selectOption";
 
 const getUsersMock = vi.fn();
 const updateUserRoleMock = vi.fn();
@@ -75,9 +76,8 @@ describe("AdminUsers", () => {
 
     renderWithProviders(<AdminUsers />);
 
-    fireEvent.change(await screen.findByLabelText("Role for user@example.com"), {
-      target: { value: "admin" },
-    });
+    await screen.findByText("user@example.com");
+    await selectOption("Role for user@example.com", "admin");
 
     await waitFor(() =>
       expect(updateUserRoleMock).toHaveBeenCalledWith("user-1", "admin"),
@@ -97,9 +97,8 @@ describe("AdminUsers", () => {
 
     renderWithProviders(<AdminUsers />);
 
-    fireEvent.change(await screen.findByLabelText("Role for user@example.com"), {
-      target: { value: "admin" },
-    });
+    await screen.findByText("user@example.com");
+    await selectOption("Role for user@example.com", "admin");
 
     await waitFor(() =>
       expect(toastErrorMock).toHaveBeenCalledWith(

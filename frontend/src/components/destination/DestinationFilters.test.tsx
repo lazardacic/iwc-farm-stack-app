@@ -3,6 +3,7 @@ import { vi } from "vitest";
 
 import DestinationFilters from "./DestinationFilters";
 import { EMPTY_DESTINATION_FILTERS } from "../../types/destination";
+import { getSelectButton, selectOption } from "../../test/selectOption";
 
 const renderFilters = (
   overrides: Partial<Parameters<typeof DestinationFilters>[0]> = {},
@@ -24,22 +25,20 @@ describe("DestinationFilters", () => {
   it("lists the available countries", () => {
     renderFilters();
 
+    fireEvent.click(getSelectButton("Country"));
+
     expect(screen.getByRole("option", { name: "Italy" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Japan" })).toBeInTheDocument();
   });
 
-  it("reports changed filter values", () => {
+  it("reports changed filter values", async () => {
     const { onChange } = renderFilters();
 
-    fireEvent.change(screen.getByLabelText("Country"), {
-      target: { value: "Japan" },
-    });
+    await selectOption("Country", "Japan");
     fireEvent.change(screen.getByLabelText("Min price"), {
       target: { value: "500" },
     });
-    fireEvent.change(screen.getByLabelText("Featured"), {
-      target: { value: "featured" },
-    });
+    await selectOption("Featured", "Featured only");
 
     expect(onChange).toHaveBeenNthCalledWith(1, {
       ...EMPTY_DESTINATION_FILTERS,
