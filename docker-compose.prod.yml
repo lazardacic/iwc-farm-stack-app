@@ -5,7 +5,9 @@
 
 services:
   mongodb:
-    image: mongo:8.0
+    # MongoDB 8.x cannot start on Linux kernels 6.19-7.0.13 (SERVER-121912), common on
+    # current cloud hosts. 7.0 is unaffected; revisit once MongoDB ships a fix.
+    image: mongo:7.0
     restart: unless-stopped
     volumes:
       - mongo-data:/data/db

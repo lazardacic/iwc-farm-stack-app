@@ -12,15 +12,15 @@ concurrency:
 jobs:
   backend:
     name: Backend tests
-    # MongoDB cannot start on Linux kernels 6.19-7.0.13 (SERVER-121912), which the
-    # Ubuntu 26 runners use. Stay on 24.04 until runners ship kernel 7.0.14 or later.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
     services:
       mongodb:
-        image: mongo:8.0
+        # MongoDB 8.x cannot start on Linux kernels 6.19-7.0.13 (SERVER-121912),
+        # which GitHub runners now use. 7.0 is unaffected; revisit once fixed.
+        image: mongo:7.0
         ports:
           - 27017:27017
         options: >-
@@ -44,7 +44,7 @@ jobs:
 
   frontend:
     name: Frontend lint, tests and build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
@@ -62,7 +62,7 @@ jobs:
 
   docker:
     name: Docker images build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v5

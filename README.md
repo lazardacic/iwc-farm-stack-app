@@ -436,7 +436,7 @@ Stop with `docker compose -f docker-compose.prod.yml down`; add `-v` to also del
 
 | Job | Steps |
 | --- | --- |
-| Backend tests | Python 3.14, `pip install -r requirements-dev.txt`, `pytest` against a MongoDB 8 service container |
+| Backend tests | Python 3.14, `pip install -r requirements-dev.txt`, `pytest` against a MongoDB 7.0 service container |
 | Frontend | Node 24, `npm ci`, `npm run lint`, `npm run test`, `npm run build` |
 | Docker images | Builds the backend and frontend images, after both test jobs pass |
 
