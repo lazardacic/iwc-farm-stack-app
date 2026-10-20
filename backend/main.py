@@ -27,6 +27,10 @@ from services.refresh_tokens import ensure_refresh_token_indexes
 from services.user_service import migrate_legacy_roles
 
 
+# Uvicorn configures only its own loggers; this makes the app's INFO messages
+# (such as removed uploads) visible too.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s - %(message)s")
+
 logger = logging.getLogger(__name__)
 
 

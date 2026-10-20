@@ -250,6 +250,21 @@ async def logout_user(
 CurrentUser = Annotated[UserResponse, Depends(get_current_user)]
 
 
+async def get_optional_user(
+    request: Request,
+    collection: UserCollection,
+) -> UserResponse | None:
+    # Public routes that behave differently for a signed-in user. A token that is
+    # sent but invalid still fails with 401, so the client can refresh it.
+    if not request.headers.get("authorization"):
+        return None
+
+    return await get_current_user(request, collection)
+
+
+OptionalUser = Annotated[UserResponse | None, Depends(get_optional_user)]
+
+
 def require_roles(*roles: str):
     async def role_checker(current_user: CurrentUser):
         if current_user.role not in roles:

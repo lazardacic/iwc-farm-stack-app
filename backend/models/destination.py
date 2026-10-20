@@ -46,8 +46,17 @@ DestinationSort = Literal[
 ]
 
 
+# How many destinations the home page slider shows; admins cannot feature more.
+MAX_FEATURED_DESTINATIONS = 5
+
+
+class FeaturedUpdate(BaseModel):
+    featured: bool
+
+
 class DestinationFilters(BaseModel):
     country: Optional[str] = None
+    created_by: Optional[str] = None
     min_price: Optional[float] = None
     max_price: Optional[float] = None
     min_rating: Optional[float] = None

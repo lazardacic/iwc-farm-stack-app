@@ -1,8 +1,15 @@
 import asyncio
 import random
+from datetime import datetime, timedelta, timezone
 
 from database.connection import create_mongo_client, get_database
+from models.destination import MAX_FEATURED_DESTINATIONS
 from services.destination_images import random_placeholder
+
+
+# Seeded destinations belong to this user when it exists (run seed_users.py first),
+# so the editor account has its own destinations to edit.
+SEED_OWNER_EMAIL = "editor@example.com"
 
 
 cities = [
@@ -67,10 +74,19 @@ for index in range(99):
         "rating": round(random.uniform(3.5, 5.0), 1),
         "image": random_placeholder(),
         "tags": random.sample(all_tags, k=random.randint(2, 4)),
-        "featured": random.choice([True, False]),
+        "featured": False,
     }
 
     mock_destinations.append(destination)
+
+
+# The home page slider shows at most this many featured destinations.
+now = datetime.now(timezone.utc)
+for position, destination in enumerate(
+    random.sample(mock_destinations, k=MAX_FEATURED_DESTINATIONS)
+):
+    destination["featured"] = True
+    destination["featured_at"] = now - timedelta(minutes=position)
 
 
 async def seed_database():
@@ -79,10 +95,20 @@ async def seed_database():
     collection = database["destinations"]
 
     try:
+        owner = await database["users"].find_one({"email": SEED_OWNER_EMAIL})
+        if owner:
+            for destination in mock_destinations:
+                destination["created_by"] = str(owner["_id"])
+
         await collection.delete_many({})
         await collection.insert_many(mock_destinations)
 
-        print("Successfully inserted 99 destinations")
+        print(f"Successfully inserted {len(mock_destinations)} destinations")
+        print(
+            f"Owner: {SEED_OWNER_EMAIL}"
+            if owner
+            else f"No owner: {SEED_OWNER_EMAIL} does not exist, run seed_users.py first"
+        )
     finally:
         client.close()
 

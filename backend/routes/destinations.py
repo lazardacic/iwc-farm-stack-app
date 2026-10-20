@@ -9,20 +9,26 @@ from database.dependencies import (
     get_upload_collection,
 )
 from models.destination import (
+    MAX_FEATURED_DESTINATIONS,
     DestinationCreate,
     DestinationFilters,
     DestinationPage,
+    DestinationResponse,
     DestinationSort,
+    FeaturedUpdate,
 )
 from models.user import UserResponse
-from routes.auth import PublisherUser, require_roles
+from routes.auth import OptionalUser, PublisherUser, require_roles
 from services.destination_images import (
     random_placeholder,
     release_image,
     resolve_upload_public_id,
 )
 from services.destination_service import (
+    count_featured_destinations,
     get_all_destinations,
+    get_featured_destinations,
+    set_destination_featured,
     get_destination_countries,
     get_destination,
     get_destination_document,
@@ -55,6 +61,7 @@ Storage = Annotated[ImageStorage, Depends(get_image_storage)]
 @router.get("/", response_model=DestinationPage)
 async def fetch_destinations(
     collection: DestinationCollection,
+    current_user: OptionalUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(9, ge=1, le=100),
     search: str = Query("", max_length=100),
@@ -65,7 +72,15 @@ async def fetch_destinations(
     max_rating: float | None = Query(None, ge=0, le=5),
     featured: bool | None = None,
     sort: DestinationSort = "oldest",
+    # Only the destinations the signed-in user created.
+    mine: bool = False,
 ):
+    if mine and not current_user:
+        raise HTTPException(
+            status_code=401,
+            detail="Sign in to see your destinations",
+        )
+
     if min_price is not None and max_price is not None and min_price > max_price:
         raise HTTPException(
             status_code=422,
@@ -85,6 +100,7 @@ async def fetch_destinations(
         min_rating=min_rating,
         max_rating=max_rating,
         featured=featured,
+        created_by=current_user.id if mine else None,
     )
 
     return await get_all_destinations(
@@ -95,6 +111,13 @@ async def fetch_destinations(
         filters,
         sort,
     )
+
+
+@router.get("/featured", response_model=list[DestinationResponse])
+async def fetch_featured_destinations(
+    collection: DestinationCollection,
+):
+    return await get_featured_destinations(collection, MAX_FEATURED_DESTINATIONS)
 
 
 @router.get("/countries", response_model=list[str])
@@ -156,6 +179,8 @@ async def add_destination(
 ):
     data = destination.model_dump()
     data["created_by"] = current_user.id
+    # Only admins feature destinations, through PATCH /{id}/featured.
+    data["featured"] = False
     data["image"], data["image_public_id"] = await resolve_image(
         uploads, data["image"], current_user
     )
@@ -193,6 +218,8 @@ async def edit_destination(
         )
 
     data = destination.model_dump()
+    # Featuring is admin-only and capped, so edits keep the stored value.
+    data["featured"] = existing.get("featured", False)
     previous_public_id = existing.get("image_public_id")
 
     if data["image"] and data["image"] == existing.get("image"):
@@ -257,3 +284,37 @@ async def remove_destination(
     )
 
     return deleted
+
+
+@router.patch("/{id}/featured", response_model=DestinationResponse)
+async def change_destination_featured(
+    id: str,
+    payload: FeaturedUpdate,
+    collection: DestinationCollection,
+    current_user: AdminUser,
+):
+    try:
+        existing = await get_destination(collection, id)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid destination id",
+        )
+
+    if not existing:
+        raise HTTPException(
+            status_code=404,
+            detail="Destination not found",
+        )
+
+    adding = payload.featured and not existing["featured"]
+    if adding and await count_featured_destinations(collection) >= MAX_FEATURED_DESTINATIONS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Only {MAX_FEATURED_DESTINATIONS} destinations can be featured. "
+                "Remove one first."
+            ),
+        )
+
+    return await set_destination_featured(collection, id, payload.featured)

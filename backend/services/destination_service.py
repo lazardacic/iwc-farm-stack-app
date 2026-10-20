@@ -1,5 +1,6 @@
 import math
 import re
+from datetime import datetime, timezone
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -80,6 +81,9 @@ def build_destination_query(
     if filters.featured is not None:
         query["featured"] = filters.featured
 
+    if filters.created_by:
+        query["created_by"] = filters.created_by
+
     return query
 
 
@@ -112,6 +116,35 @@ async def get_all_destinations(
         "page_size": page_size,
         "pages": math.ceil(total / page_size),
     }
+
+
+async def get_featured_destinations(collection, limit: int) -> list[dict]:
+    # Most recently featured first; _id keeps the order stable for equal times.
+    cursor = (
+        collection.find({"featured": True})
+        .sort([("featured_at", -1), ("_id", -1)])
+        .limit(limit)
+    )
+    return [destination_serializer(destination) async for destination in cursor]
+
+
+async def count_featured_destinations(collection) -> int:
+    return await collection.count_documents({"featured": True})
+
+
+async def set_destination_featured(collection, id: str, featured: bool):
+    object_id = _parse_object_id(id)
+    change = (
+        {"$set": {"featured": True, "featured_at": datetime.now(timezone.utc)}}
+        if featured
+        else {"$set": {"featured": False}, "$unset": {"featured_at": ""}}
+    )
+
+    result = await collection.update_one({"_id": object_id}, change)
+    if result.matched_count == 0:
+        return None
+
+    return destination_serializer(await collection.find_one({"_id": object_id}))
 
 
 async def get_destination_countries(collection) -> list[str]:

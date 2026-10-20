@@ -4,7 +4,7 @@ A travel destination management application built with **FastAPI, React, MongoDB
 
 Full CRUD over a REST API, with client and server side validation, cached server state, and error handling at every layer. Built as an individual learning project, structured with practices used in production systems rather than as a tutorial exercise.
 
-> **Status:** backend and frontend authentication flows are implemented and validated for local development. The project now includes JWT-based auth, role checks, protected frontend routes, session-aware UI, and an automated test suite covering backend auth, API integration, and frontend route guards. See [Testing](#testing) and [Known limitations](#known-limitations).
+> **Status:** feature-complete for its scope and tested end to end. It has three roles with destination ownership, image upload with resizing, filters kept in the URL, short-lived access tokens with rotating refresh tokens, a Docker production stack and GitHub Actions CI. About 180 backend and 90 frontend tests run on every push. See [Testing](#testing) and [Known limitations](#known-limitations).
 
 **Repository:** <https://github.com/lazardacic/iwc-farm-stack-app>
 
@@ -45,11 +45,11 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 
 ## Tech stack
 
-**Frontend** — React, TypeScript, Vite, React Router, Axios, TanStack Query, React Hook Form, Zod, Tailwind CSS, React Hot Toast, clsx, React Icons
+**Frontend** — React, TypeScript, Vite, React Router, Axios, TanStack Query, Zustand, React Hook Form, Zod, Tailwind CSS, Headless UI, React Hot Toast, clsx, React Icons, Vitest, Testing Library
 
-**Backend** — Python 3.14, FastAPI, Uvicorn, Motor, Pydantic, python-dotenv
+**Backend** — Python 3.14, FastAPI, Uvicorn, Motor, Pydantic, PyJWT, Argon2, Pillow, Cloudinary SDK, python-dotenv, pytest
 
-**Database and tooling** — MongoDB, Docker, Docker Compose
+**Database and tooling** — MongoDB 7, Docker, Docker Compose, Nginx, GitHub Actions
 
 ## Features
 
@@ -79,6 +79,10 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - Destination filters by country, price range, minimum rating, and featured status
 - Stable destination sorting by price, rating, title, or creation order
 - Search, filters, sort and page kept in the URL (`/?country=Japan&sort=price_asc&page=2`), so views can be shared, bookmarked and restored with Back
+- Featured slider at the top of the home page: up to 5 destinations chosen by admins, with arrows, dots and swipe, and no autoplay
+- "My destinations" page for editors and admins, listing only what they published
+- Destination pages laid out like a blog post: large image, readable text column and a trip details panel
+- Inter and Plus Jakarta Sans fonts, bundled with the app
 - Admin user management: list and search users, change roles (admin-only on the backend)
 - Light and dark theme with a persisted preference
 - Skeleton loaders, empty states, and error states
@@ -171,6 +175,8 @@ This creates:
 - `editor@example.com` / `editor1234`
 - `subscriber@example.com` / `subscriber1234`
 
+Run `seed_users.py` before `seed.py`: the 99 seeded destinations then belong to `editor@example.com`, so that account has destinations of its own to edit. Five of them are featured.
+
 ### Roles
 
 | Action | Admin | Editor | Subscriber |
@@ -179,6 +185,8 @@ This creates:
 | Create destinations and upload images | yes | yes | no |
 | Edit destinations | all | only their own | no |
 | Delete destinations | yes | no | no |
+| Feature destinations on the home page | yes | no | no |
+| See "My destinations" | yes | yes | no |
 | List users and change roles | yes | no | no |
 
 New accounts start as `subscriber`. Accounts stored with the old `user` role are migrated to `subscriber` when the backend starts. Destinations created before ownership existed have no owner, so only admins can edit them.
@@ -195,33 +203,38 @@ If `uvicorn main:app` reports `Could not import module "main"`, it was started o
 
 ```
 src/
-├── api/            axiosClient.ts, authApi.ts, destinationsApi.ts, usersApi.ts
+├── api/            axiosClient.ts, authApi.ts, destinationsApi.ts, imagesApi.ts, usersApi.ts
 ├── assets/         logo.svg, images/
 ├── components/
-│   ├── auth/       ProtectedRoute.tsx, GuestRoute.tsx
+│   ├── auth/       ProtectedRoute.tsx, GuestRoute.tsx, AuthSession.tsx
 │   ├── ui/         Button, Input, Textarea, Card, Badge, Loader, Skeleton,
 │   │               Modal, SearchBar, Select, Pagination, EmptyState, ErrorState
-│   ├── forms/      DestinationForm.tsx, AuthForm.tsx
-│   ├── destination/  DestinationCard.tsx, DestinationCardSkeleton.tsx, DestinationFilters.tsx
+│   ├── forms/      DestinationForm.tsx, AuthForm.tsx, ImageInput.tsx
+│   ├── destination/  DestinationCard.tsx, DestinationCardSkeleton.tsx, DestinationFilters.tsx,
+│   │               DestinationImage.tsx, FeaturedSlider.tsx
 │   └── layout/     Navbar, Footer, MainLayout, ThemeToggle
 ├── context/        ThemeContext.tsx, ThemeProvider.tsx
 ├── store/          authStore.ts (Zustand)
 ├── hooks/          useTheme.ts, useAuth.ts
 ├── pages/          Home, DestinationDetails, CreateDestination,
-│                   EditDestination, AdminUsers, Login, Register, NotFound
+│                   EditDestination, MyDestinations, AdminUsers, Welcome,
+│                   Login, Register, NotFound
 ├── providers/      QueryProvider.tsx
 ├── routes/         AppRoutes.tsx
 ├── types/          auth.ts, destination.ts, destinationForm.ts, user.ts
-├── utils/          destinationFilters.ts, apiError.ts
+├── utils/          destinationFilters.ts, homeSearchParams.ts, permissions.ts,
+│                   imageFiles.ts, formatters.ts, apiError.ts
 ├── validation/     authSchema.ts, destinationSchema.ts
-├── test/           setup.ts, renderWithProviders.tsx
+├── test/           setup.ts, renderWithProviders.tsx, LocationProbe.tsx, selectOption.ts
 ├── styles/         globals.css
 ├── App.tsx
 └── main.tsx
 ```
 
 Components never call Axios directly. All HTTP lives in `api/`, which exposes one function per operation. Validation rules live in a single Zod schema in `validation/`.
-Authentication state lives in a global context provider, and protected pages are enforced through route guard components instead of page-local checks.
+Authentication state lives in a Zustand store that both components and the Axios interceptor read, and protected pages are enforced through route guard components instead of page-local checks. List state for the home page lives in the URL.
+
+Public files in `frontend/public/` include `placeholders/`, six grayscale SVGs assigned to destinations without an image.
 
 ## API reference
 
@@ -231,6 +244,8 @@ Authentication state lives in a global context provider, and protected pages are
 | --- | --- | --- | --- |
 | `GET` | `/destinations?page=1&page_size=9&search=Japan` | Search, filter, and list a page of destinations | 200 |
 | `GET` | `/destinations/countries` | List distinct destination countries | 200 |
+| `GET` | `/destinations/featured` | Up to 5 featured destinations, most recently featured first | 200 |
+| `PATCH` | `/destinations/{id}/featured` | Feature or unfeature (`{"featured": true}`); admin only; 409 when 5 are already featured | 200 |
 | `GET` | `/destinations/{id}` | Get one destination | 200 |
 | `POST` | `/destinations` | Create a destination (admin, editor) | 200 |
 | `PUT` | `/destinations/{id}` | Update a destination (admin, or the editor who created it) | 200 |
@@ -293,6 +308,7 @@ Optional filters combine with search and with each other:
 | `min_rating`, `max_rating` | between 0 and 5; `min_rating` must not exceed `max_rating` |
 | `featured` | `true` or `false` |
 | `sort` | `oldest` (default), `newest`, `price_asc`, `price_desc`, `rating_desc`, `title_asc` |
+| `mine` | `true` lists only the caller's own destinations; needs a token, otherwise 401 |
 
 Invalid filter or sort values return 422. Every sort uses `_id` as a tiebreaker, so items with equal values keep the same order across pages. The backend creates indexes on `country`, `price`, `rating`, and `featured` at startup.
 
@@ -335,9 +351,10 @@ A destination is one self contained document. No joins, no transformation layer 
 | `image` | string: `http(s)` URL or relative path | no; empty gets a placeholder |
 | `price` | number (greater than 0) | yes |
 | `rating` | number (0 to 5) | yes |
-| `featured` | boolean | no |
+| `featured` | boolean | changed only through `PATCH /destinations/{id}/featured`; create and update ignore it |
 | `tags` | string[] | no |
 | `created_by` | string (user id) | set by the backend on create |
+| `featured_at` | datetime | set by the backend when an admin features the destination; orders the slider |
 | `image_public_id` | string | internal; set when `image` is one of our uploads, never returned |
 
 ## Configuration
@@ -366,13 +383,14 @@ The API and frontend dev server still default to `http://localhost:8000` and `ht
 
 The backend includes automated tests for the MongoDB-backed data flow, auth flow, and FastAPI endpoints. Current coverage is split into:
 
-- Unit tests for Pydantic models and password validation
-- Auth tests for registration, login, JWT decode, and current user lookup
-- Authorization tests for protected routes and admin-only access
+- Unit tests for Pydantic models, password validation, image type detection and the query builder
+- Auth tests for registration, login, JWT decode, current user lookup, refresh token rotation, reuse detection and logout
+- Authorization tests for every role, destination ownership and admin-only access
+- Image tests for upload validation, resizing, EXIF handling and orphan cleanup
 - Service tests for create, read, update, and delete logic
 - API integration tests that run FastAPI against a separate MongoDB test database
 
-The frontend includes tests for auth route guards, the destination list (loading, empty, error, pagination, sort, and filters), the destination and auth forms, the filter panel, and the admin users page, plus a production build check.
+The frontend includes tests for the auth store, the Axios refresh interceptor, session handling, route guards, the destination list (loading, empty, error, pagination, sort, filters and URL state), the destination and auth forms, the image field, permissions, the filter panel and the admin users page, plus a production build check.
 
 Run the backend test suite from `backend/`:
 
@@ -380,11 +398,7 @@ Run the backend test suite from `backend/`:
 pytest -q
 ```
 
-If you are using the local virtual environment on Windows, the equivalent command is:
-
-```bash
-C:/Projects/iwc-farm-stack-app/.venv/Scripts/python.exe -m pytest -q
-```
+The tests need MongoDB on `localhost:27017` (the dev `docker-compose.yml`). To use another instance, set `MONGODB_URL`, for example `MONGODB_URL=mongodb://localhost:27018 pytest -q`.
 
 Run the frontend tests from `frontend/`:
 
@@ -415,7 +429,7 @@ FastAPI dependency overrides are used to make API tests use the test database in
 
 The current suite covers the main auth and CRUD paths, but there are still useful additions for broader production readiness:
 
-- tests for auth provider behavior and the create/edit/delete pages
+- tests for the create, edit and destination detail pages
 - password reset / email verification flows
 - MongoDB connection failure or unavailable database scenarios
 - broader edge-case coverage for partial updates, empty search results, and future endpoints
@@ -478,7 +492,12 @@ Ordered by value:
 
 ## Documentation
 
-Full technical documentation, covering architecture, layer responsibilities, the data model, the REST interface, error handling, and the reasoning behind each decision, is in `docs/FARM_Stack_Technical_Documentation.pdf`.
+In the repository:
+
+- `README.md` — setup, API reference, data model, configuration, testing and deployment
+- `backend/AUTHENTICATION.md` — users, roles, tokens and the frontend auth flow
+
+Development logs describing each round of work, with the reasoning behind decisions, are kept outside the repository.
 
 ## License
 
