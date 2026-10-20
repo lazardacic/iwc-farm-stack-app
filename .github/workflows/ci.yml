@@ -12,7 +12,9 @@ concurrency:
 jobs:
   backend:
     name: Backend tests
-    runs-on: ubuntu-latest
+    # MongoDB cannot start on Linux kernels 6.19-7.0.13 (SERVER-121912), which the
+    # Ubuntu 26 runners use. Stay on 24.04 until runners ship kernel 7.0.14 or later.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: backend
@@ -42,7 +44,7 @@ jobs:
 
   frontend:
     name: Frontend lint, tests and build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -60,7 +62,7 @@ jobs:
 
   docker:
     name: Docker images build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v5
