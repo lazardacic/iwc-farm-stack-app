@@ -180,6 +180,99 @@ describe("Home", () => {
     expect(screen.getByPlaceholderText("Search destinations...")).toHaveValue("");
   });
 
+  it("restores search, filters, sort and page from the URL", async () => {
+    getAllDestinationsMock.mockResolvedValue(
+      makePage([makeDestination()], { total: 20, page: 2, pages: 3 }),
+    );
+
+    renderWithProviders(<Home />, {
+      route: "/?search=tokyo&country=Japan&min_rating=4&sort=price_desc&page=2",
+    });
+
+    await screen.findByText("Tokyo Trip");
+    expect(lastRequest()).toMatchObject({
+      page: 2,
+      search: "tokyo",
+      sort: "price_desc",
+      filters: expect.objectContaining({ country: "Japan", minRating: "4" }),
+    });
+    expect(screen.getByPlaceholderText("Search destinations...")).toHaveValue(
+      "tokyo",
+    );
+    expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+  });
+
+  it("writes sort and page changes to the URL", async () => {
+    getAllDestinationsMock.mockResolvedValue(
+      makePage([makeDestination()], { total: 20, pages: 3 }),
+    );
+
+    renderWithProviders(<Home />);
+    await screen.findByText("Tokyo Trip");
+
+    await selectOption("Sort by", "Top rated");
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/?sort=rating_desc",
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/?sort=rating_desc&page=2",
+      ),
+    );
+  });
+
+  it("returns to page 1 when a filter changes", async () => {
+    getAllDestinationsMock.mockResolvedValue(
+      makePage([makeDestination()], { total: 20, page: 2, pages: 3 }),
+    );
+
+    renderWithProviders(<Home />, { route: "/?page=2" });
+    await screen.findByText("Tokyo Trip");
+    await waitFor(() => expect(getDestinationCountriesMock).toHaveBeenCalled());
+
+    await selectOption("Country", "Japan");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent("/?country=Japan"),
+    );
+    expect(screen.getByTestId("location")).not.toHaveTextContent("page=");
+  });
+
+  it("clears every param from the URL", async () => {
+    getAllDestinationsMock.mockResolvedValue(makePage([]));
+
+    renderWithProviders(<Home />, { route: "/?search=atlantis&featured=true" });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Clear search and filters" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/),
+    );
+  });
+
+  it("moves a page past the end to the last page", async () => {
+    getAllDestinationsMock.mockImplementation(({ page }: { page: number }) =>
+      Promise.resolve(
+        page > 2
+          ? makePage([], { total: 12, page, pages: 2 })
+          : makePage([makeDestination()], { total: 12, page, pages: 2 }),
+      ),
+    );
+
+    renderWithProviders(<Home />, { route: "/?page=5" });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent("/?page=2"),
+    );
+    expect(await screen.findByText("Page 2 of 2")).toBeInTheDocument();
+  });
+
   it("shows an error state with retry", async () => {
     getAllDestinationsMock.mockRejectedValueOnce(new Error("Network error"));
 

@@ -1,5 +1,5 @@
-import { useDeferredValue, useState } from "react";
-import { Link } from "react-router-dom";
+import { useDeferredValue, useEffect, useMemo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import {
@@ -16,6 +16,12 @@ import {
   getPriceRangeError,
   hasActiveFilters,
 } from "../utils/destinationFilters";
+import {
+  EMPTY_HOME_LIST_STATE,
+  parseHomeSearchParams,
+  toHomeSearchParams,
+  type HomeListState,
+} from "../utils/homeSearchParams";
 
 import ErrorState from "../components/ui/ErrorState";
 import EmptyState from "../components/ui/EmptyState";
@@ -53,12 +59,14 @@ const gridClasses = `
 
 const Home = () => {
   const { isAuthenticated, canPublish } = useAuth();
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [sort, setSort] = useState<DestinationSort>("oldest");
-  const [filters, setFilters] = useState<DestinationFiltersValue>(
-    EMPTY_DESTINATION_FILTERS,
+  // Search, filters, sort and page live in the URL, so a view can be shared,
+  // bookmarked and restored with the browser's Back button.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const listState = useMemo(
+    () => parseHomeSearchParams(searchParams),
+    [searchParams],
   );
+  const { search, page, sort, filters } = listState;
   const deferredSearch = useDeferredValue(search.trim());
   const deferredFilters = useDeferredValue(filters);
   const priceError = getPriceRangeError(filters);
@@ -99,24 +107,39 @@ const Home = () => {
     enabled: !getPriceRangeError(deferredFilters),
   });
 
-  // Clamp during render when the result set shrinks below the current page
-  // (for example after a deletion), instead of syncing state in an effect.
-  if (!isPlaceholderData && !isLoading) {
-    const lastPage = Math.max(data.pages, 1);
+  // Any change except paging starts again from page 1. Typing replaces the
+  // current history entry, so Back skips keystrokes and returns to the last view.
+  const updateList = (
+    changes: Partial<HomeListState>,
+    { replace = false }: { replace?: boolean } = {},
+  ) => {
+    setSearchParams(toHomeSearchParams({ ...listState, page: 1, ...changes }), {
+      replace,
+    });
+  };
 
-    if (page > lastPage) {
-      setPage(lastPage);
+  // A page past the end (an old link, or rows deleted since) moves to the last page.
+  const lastPage = Math.max(data.pages, 1);
+  const pageOutOfRange = !isPlaceholderData && !isLoading && page > lastPage;
+
+  useEffect(() => {
+    if (pageOutOfRange) {
+      setSearchParams(toHomeSearchParams({ ...listState, page: lastPage }), {
+        replace: true,
+      });
     }
-  }
+  }, [pageOutOfRange, lastPage, listState, setSearchParams]);
 
   const changeFilters = (nextFilters: DestinationFiltersValue) => {
-    setFilters(nextFilters);
-    setPage(1);
+    const typingPrice =
+      nextFilters.minPrice !== filters.minPrice ||
+      nextFilters.maxPrice !== filters.maxPrice;
+
+    updateList({ filters: nextFilters }, { replace: typingPrice });
   };
 
   const clearFilters = () => {
-    setSearch("");
-    changeFilters(EMPTY_DESTINATION_FILTERS);
+    setSearchParams(toHomeSearchParams(EMPTY_HOME_LIST_STATE));
   };
 
   const renderContent = () => {
@@ -244,10 +267,7 @@ const Home = () => {
         <div className="flex w-full flex-col gap-3 sm:flex-row md:max-w-2xl">
           <SearchBar
             value={search}
-            onChange={(value) => {
-              setSearch(value);
-              setPage(1);
-            }}
+            onChange={(value) => updateList({ search: value }, { replace: true })}
           />
 
           <div className="sm:w-56">
@@ -255,10 +275,7 @@ const Home = () => {
               aria-label="Sort by"
               value={sort}
               options={SORT_OPTIONS}
-              onChange={(nextSort) => {
-                setSort(nextSort);
-                setPage(1);
-              }}
+              onChange={(nextSort: DestinationSort) => updateList({ sort: nextSort })}
             />
           </div>
         </div>
@@ -269,7 +286,7 @@ const Home = () => {
         countries={countries}
         priceError={priceError}
         onChange={changeFilters}
-        onReset={() => changeFilters(EMPTY_DESTINATION_FILTERS)}
+        onReset={() => updateList({ filters: EMPTY_DESTINATION_FILTERS })}
       />
 
       {/* Content */}
@@ -284,7 +301,7 @@ const Home = () => {
           pageSize={PAGE_SIZE}
           itemLabel="destinations"
           disabled={isPlaceholderData}
-          onPageChange={setPage}
+          onPageChange={(nextPage) => updateList({ page: nextPage })}
         />
       )}
     </section>

@@ -3,7 +3,12 @@ import { render } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 
-export const renderWithProviders = (ui: ReactElement) => {
+import LocationProbe from "./LocationProbe";
+
+export const renderWithProviders = (
+  ui: ReactElement,
+  { route = "/" }: { route?: string } = {},
+) => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -15,7 +20,10 @@ export const renderWithProviders = (ui: ReactElement) => {
     queryClient,
     ...render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>{ui}</MemoryRouter>
+        <MemoryRouter initialEntries={[route]}>
+          {ui}
+          <LocationProbe />
+        </MemoryRouter>
       </QueryClientProvider>,
     ),
   };

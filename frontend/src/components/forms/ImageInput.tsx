@@ -148,7 +148,7 @@ const ImageInput = ({
       </div>
 
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        JPEG, PNG or WebP, up to 5 MB.
+        JPEG, PNG or WebP, up to 5 MB. Saved as WebP, at most 1600 px wide or tall.
       </p>
 
       {showUrlInput && (

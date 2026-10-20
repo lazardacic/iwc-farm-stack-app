@@ -66,6 +66,8 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - Admin-only `/admin/users` page for managing user roles
 - Welcome page that shows each signed-in user their role and what it allows
 - Image upload (JPEG, PNG, WebP up to 5 MB) to local storage or Cloudinary, with preview
+- Uploaded images are resized to at most 1600 px, converted to WebP and stripped of EXIF metadata (including GPS location)
+- Uploads never attached to a destination are deleted automatically after 24 hours
 - Bundled grayscale placeholder images, assigned at random when a destination has no image
 - Client side validation with Zod, authoritative server side validation with Pydantic
 - Server state caching and invalidation with TanStack Query
@@ -73,6 +75,7 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - Server side destination search and pagination
 - Destination filters by country, price range, minimum rating, and featured status
 - Stable destination sorting by price, rating, title, or creation order
+- Search, filters, sort and page kept in the URL (`/?country=Japan&sort=price_asc&page=2`), so views can be shared, bookmarked and restored with Back
 - Admin user management: list and search users, change roles (admin-only on the backend)
 - Light and dark theme with a persisted preference
 - Skeleton loaders, empty states, and error states
@@ -235,7 +238,7 @@ Authentication state lives in a global context provider, and protected pages are
 | --- | --- | --- | --- |
 | `POST` | `/images` | Upload one image as multipart field `file` (admin, editor); returns `{"url": "..."}` | 201 |
 
-The backend checks the file content, not its name or declared type: JPEG, PNG and WebP up to 5 MB are accepted (otherwise 415, 413, or 400 for an empty file). Each upload is recorded with its uploader. A destination may use an uploaded image only if the same user uploaded it, or the user is an admin (otherwise 403). When a destination's image is replaced or removed, or the destination is deleted, the old upload is deleted unless another destination still uses it.
+The backend checks the file content, not its name or declared type: JPEG, PNG and WebP up to 5 MB are accepted (otherwise 415, 413, or 400 for an empty file). Accepted images are decoded with Pillow, rotated according to their EXIF orientation, resized to at most 1600 px on the longest side, and saved as WebP without metadata. A file that cannot be decoded, or has more than 40 million pixels, returns 400. Each upload is recorded with its uploader. A destination may use an uploaded image only if the same user uploaded it, or the user is an admin (otherwise 403). When a destination's image is replaced or removed, or the destination is deleted, the old upload is deleted unless another destination still uses it.
 
 A destination saved with an empty `image` gets one of the bundled placeholders (`/placeholders/*.svg`, served by the frontend). Image values must be an `http(s)` URL or a relative path; `javascript:`, `data:` and other schemes return 422.
 
@@ -341,6 +344,8 @@ Backend settings are read from `backend/.env`; frontend settings are read from `
 | `IMAGE_STORAGE` | Backend | `local` (files in `backend/media`, served at `/media`) or `cloudinary` |
 | `API_PUBLIC_URL` | Backend | `http://localhost:8000`; base for links to locally stored images |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Backend | Required only with `IMAGE_STORAGE=cloudinary`; the backend refuses to start if one is missing |
+| `ORPHAN_UPLOAD_MAX_AGE_HOURS` | Backend | `24`; uploads not used by any destination after this long are deleted |
+| `UPLOAD_CLEANUP_INTERVAL_HOURS` | Backend | `6`; how often that cleanup runs; `0` turns it off |
 
 The API and frontend dev server still default to `http://localhost:8000` and `http://localhost:5173`, respectively. Vite exposes `VITE_*` values in the browser bundle, so do not put secrets in frontend env files.
 
@@ -447,10 +452,8 @@ Stop with `docker compose -f docker-compose.prod.yml down`; add `-v` to also del
 | No refresh token flow | JWT sessions remain single-token and expire after one lifetime |
 | No password reset or email verification | Recovery and account lifecycle are still manual |
 | Auth token stored in `localStorage` | Simpler client integration, but not the strongest production security model |
-| Filters are not in the URL | Filtered views cannot be bookmarked or shared yet |
 | Search uses unanchored regex | Text search still scans the collection; filters use indexes |
-| Uploads that are never saved to a destination stay in storage | Orphaned files need a periodic cleanup job |
-| Uploaded images are not resized | Large photos are served at full size |
+| Image cleanup runs inside the API process | With several backend replicas, each would run its own cleanup |
 | No hosting target yet | The Docker stack runs on one machine; there is no cloud deployment or HTTPS |
 
 ## Roadmap

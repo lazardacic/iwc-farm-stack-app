@@ -1,6 +1,6 @@
 import logging
 import random
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from services.image_storage import ImageStorage, StoredImage
 
@@ -62,3 +62,42 @@ async def release_image(storage: ImageStorage, uploads, destinations, public_id)
         return
 
     await uploads.delete_one({"public_id": public_id})
+
+
+async def cleanup_orphaned_uploads(
+    storage: ImageStorage,
+    uploads,
+    destinations,
+    older_than: timedelta,
+) -> int:
+    """Delete uploads older than `older_than` that no destination uses.
+
+    The age limit leaves time to finish the form after uploading, before the
+    image is attached to a destination. Returns how many uploads were removed.
+    """
+    cutoff = datetime.now(timezone.utc) - older_than
+    removed = 0
+
+    async for record in uploads.find({"created_at": {"$lt": cutoff}}):
+        in_use = await destinations.count_documents(
+            {
+                "$or": [
+                    {"image_public_id": record["public_id"]},
+                    {"image": record["url"]},
+                ]
+            },
+            limit=1,
+        )
+        if in_use:
+            continue
+
+        try:
+            await storage.delete(record["public_id"])
+        except Exception:
+            logger.exception("Failed to delete orphaned image %s", record["public_id"])
+            continue
+
+        await uploads.delete_one({"_id": record["_id"]})
+        removed += 1
+
+    return removed

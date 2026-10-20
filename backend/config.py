@@ -28,3 +28,8 @@ CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "")
 CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY", "")
 CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "")
 CLOUDINARY_FOLDER = os.getenv("CLOUDINARY_FOLDER", "farm-destinations")
+
+# Uploads not attached to any destination after this many hours are deleted.
+ORPHAN_UPLOAD_MAX_AGE_HOURS = float(os.getenv("ORPHAN_UPLOAD_MAX_AGE_HOURS", "24"))
+# How often the cleanup runs; 0 disables it.
+UPLOAD_CLEANUP_INTERVAL_HOURS = float(os.getenv("UPLOAD_CLEANUP_INTERVAL_HOURS", "6"))

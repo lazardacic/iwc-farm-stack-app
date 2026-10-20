@@ -1,15 +1,32 @@
+import io
+
 import httpx
 import pytest
 from bson import ObjectId
+from PIL import Image
 
+import services.image_processing as image_processing
 from security import create_access_token
 from services.destination_images import PLACEHOLDER_IMAGES
 
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
-JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
-WEBP = b"RIFF\x00\x00\x00\x00WEBPVP8 " + b"\x00" * 64
-GIF = b"GIF89a" + b"\x00" * 64
+def make_image(fmt: str, size=(64, 48), mode="RGB", **save_options) -> bytes:
+    color = (200, 120, 40, 128) if mode == "RGBA" else (200, 120, 40)
+    buffer = io.BytesIO()
+    Image.new(mode, size, color).save(buffer, format=fmt, **save_options)
+    return buffer.getvalue()
+
+
+def decode(content: bytes) -> Image.Image:
+    image = Image.open(io.BytesIO(content))
+    image.load()
+    return image
+
+
+PNG = make_image("PNG")
+JPEG = make_image("JPEG")
+WEBP = make_image("WEBP")
+GIF = make_image("GIF")
 
 DESTINATION = {
     "title": "Lisbon Trip",
@@ -77,17 +94,13 @@ async def test_subscriber_cannot_upload(test_app, user_collection, image_storage
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("content", "extension"),
-    [(PNG, "png"), (JPEG, "jpg"), (WEBP, "webp")],
-)
-async def test_editor_uploads_supported_images(
+@pytest.mark.parametrize("content", [PNG, JPEG, WEBP], ids=["png", "jpeg", "webp"])
+async def test_editor_uploads_supported_images_as_webp(
     test_app,
     user_collection,
     upload_collection,
     image_storage,
     content,
-    extension,
 ):
     editor_id, headers = await create_user(user_collection, "editor@example.com")
 
@@ -95,10 +108,90 @@ async def test_editor_uploads_supported_images(
 
     assert response.status_code == 201
     url = response.json()["url"]
-    assert url.endswith(f".{extension}")
+    assert url.endswith(".webp")
     record = await upload_collection.find_one({"url": url})
     assert record["uploaded_by"] == editor_id
-    assert image_storage.files[record["public_id"]] == content
+    stored = decode(image_storage.files[record["public_id"]])
+    assert stored.format == "WEBP"
+    assert stored.size == (64, 48)
+
+
+@pytest.mark.asyncio
+async def test_large_image_is_resized_to_1600_px(
+    test_app,
+    user_collection,
+    image_storage,
+):
+    _, headers = await create_user(user_collection, "editor@example.com")
+
+    response = await upload(test_app, headers, make_image("JPEG", (4000, 3000)))
+
+    assert response.status_code == 201
+    stored = decode(next(iter(image_storage.files.values())))
+    assert stored.size == (1600, 1200)
+
+
+@pytest.mark.asyncio
+async def test_exif_orientation_is_applied_and_metadata_removed(
+    test_app,
+    user_collection,
+    image_storage,
+):
+    _, headers = await create_user(user_collection, "editor@example.com")
+    exif = Image.Exif()
+    exif[0x0112] = 6  # Orientation: rotate 90 degrees clockwise to display.
+    exif[0x010F] = "Test Camera"  # Make
+    photo = make_image("JPEG", (64, 48), exif=exif.tobytes())
+
+    response = await upload(test_app, headers, photo)
+
+    assert response.status_code == 201
+    stored = decode(next(iter(image_storage.files.values())))
+    assert stored.size == (48, 64)
+    assert len(stored.getexif()) == 0
+
+
+@pytest.mark.asyncio
+async def test_transparency_is_kept(test_app, user_collection, image_storage):
+    _, headers = await create_user(user_collection, "editor@example.com")
+
+    response = await upload(test_app, headers, make_image("PNG", mode="RGBA"))
+
+    assert response.status_code == 201
+    stored = decode(next(iter(image_storage.files.values())))
+    assert stored.mode == "RGBA"
+
+
+@pytest.mark.asyncio
+async def test_corrupt_image_with_valid_header_is_rejected(
+    test_app,
+    user_collection,
+    image_storage,
+):
+    _, headers = await create_user(user_collection, "editor@example.com")
+
+    response = await upload(test_app, headers, b"\x89PNG\r\n\x1a\n" + b"\x00" * 64)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "The file is not a readable image"
+    assert image_storage.files == {}
+
+
+@pytest.mark.asyncio
+async def test_image_with_too_many_pixels_is_rejected(
+    test_app,
+    user_collection,
+    image_storage,
+    monkeypatch,
+):
+    monkeypatch.setattr(image_processing, "MAX_IMAGE_PIXELS", 1000)
+    _, headers = await create_user(user_collection, "editor@example.com")
+
+    response = await upload(test_app, headers, PNG)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Image dimensions are too large"
+    assert image_storage.files == {}
 
 
 @pytest.mark.asyncio
