@@ -26,6 +26,7 @@ def destination_serializer(destination) -> dict:
         "image": destination["image"],
         "tags": destination["tags"],
         "featured": destination["featured"],
+        "pinned": destination.get("pinned", False),
         "created_by": destination.get("created_by"),
     }
 
@@ -118,33 +119,41 @@ async def get_all_destinations(
     }
 
 
-async def get_featured_destinations(collection, limit: int) -> list[dict]:
-    # Most recently featured first; _id keeps the order stable for equal times.
+async def get_pinned_destinations(collection, limit: int) -> list[dict]:
+    # Most recently pinned first; _id keeps the order stable for equal times.
     cursor = (
-        collection.find({"featured": True})
-        .sort([("featured_at", -1), ("_id", -1)])
+        collection.find({"pinned": True})
+        .sort([("pinned_at", -1), ("_id", -1)])
         .limit(limit)
     )
     return [destination_serializer(destination) async for destination in cursor]
 
 
-async def count_featured_destinations(collection) -> int:
-    return await collection.count_documents({"featured": True})
+async def count_pinned_destinations(collection) -> int:
+    return await collection.count_documents({"pinned": True})
 
 
-async def set_destination_featured(collection, id: str, featured: bool):
+async def _update_and_return(collection, id: str, change: dict):
     object_id = _parse_object_id(id)
-    change = (
-        {"$set": {"featured": True, "featured_at": datetime.now(timezone.utc)}}
-        if featured
-        else {"$set": {"featured": False}, "$unset": {"featured_at": ""}}
-    )
 
     result = await collection.update_one({"_id": object_id}, change)
     if result.matched_count == 0:
         return None
 
     return destination_serializer(await collection.find_one({"_id": object_id}))
+
+
+async def set_destination_featured(collection, id: str, featured: bool):
+    return await _update_and_return(collection, id, {"$set": {"featured": featured}})
+
+
+async def set_destination_pinned(collection, id: str, pinned: bool):
+    change = (
+        {"$set": {"pinned": True, "pinned_at": datetime.now(timezone.utc)}}
+        if pinned
+        else {"$set": {"pinned": False}, "$unset": {"pinned_at": ""}}
+    )
+    return await _update_and_return(collection, id, change)
 
 
 async def get_destination_countries(collection) -> list[str]:
@@ -157,6 +166,7 @@ async def ensure_destination_indexes(collection):
     await collection.create_index("price")
     await collection.create_index("rating")
     await collection.create_index("featured")
+    await collection.create_index("pinned")
 
 
 async def get_destination_document(collection, id: str):

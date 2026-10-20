@@ -34,6 +34,7 @@ def test_destination_serializer():
         "tags": ["Europe", "City"],
         "featured": True,
         "created_by": "user-1",
+        "pinned": False,
     }
 
 
@@ -65,6 +66,7 @@ def test_destination_serializer_with_empty_values():
         "tags": [],
         "featured": False,
         "created_by": None,
+        "pinned": False,
     }
 
 

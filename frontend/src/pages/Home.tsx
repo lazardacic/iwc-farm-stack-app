@@ -32,7 +32,7 @@ import Select from "../components/ui/Select";
 import DestinationCard from "../components/destination/DestinationCard";
 import DestinationCardSkeleton from "../components/destination/DestinationCardSkeleton";
 import DestinationFilters from "../components/destination/DestinationFilters";
-import FeaturedSlider from "../components/destination/FeaturedSlider";
+import PinnedSlider from "../components/destination/PinnedSlider";
 import Button from "../components/ui/Button";
 
 const PAGE_SIZE = 9;
@@ -224,7 +224,7 @@ const Home = () => {
         sm:py-10
       "
     >
-      <FeaturedSlider />
+      <PinnedSlider />
 
       {/* Header */}
 

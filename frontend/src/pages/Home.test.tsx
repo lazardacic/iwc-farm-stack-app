@@ -8,13 +8,13 @@ import type { Destination, DestinationPage } from "../types/destination";
 
 const getAllDestinationsMock = vi.fn();
 const getDestinationCountriesMock = vi.fn();
-const getFeaturedDestinationsMock = vi.fn();
+const getPinnedDestinationsMock = vi.fn();
 const useAuthMock = vi.fn();
 
 vi.mock("../api/destinationsApi", () => ({
   getAllDestinations: (params: unknown) => getAllDestinationsMock(params),
   getDestinationCountries: () => getDestinationCountriesMock(),
-  getFeaturedDestinations: () => getFeaturedDestinationsMock(),
+  getPinnedDestinations: () => getPinnedDestinationsMock(),
 }));
 
 vi.mock("../hooks/useAuth", () => ({
@@ -53,8 +53,8 @@ describe("Home", () => {
     getAllDestinationsMock.mockReset();
     getDestinationCountriesMock.mockReset();
     getDestinationCountriesMock.mockResolvedValue(["Italy", "Japan"]);
-    getFeaturedDestinationsMock.mockReset();
-    getFeaturedDestinationsMock.mockResolvedValue([]);
+    getPinnedDestinationsMock.mockReset();
+    getPinnedDestinationsMock.mockResolvedValue([]);
     useAuthMock.mockReturnValue({ isAuthenticated: false, canPublish: false });
   });
 

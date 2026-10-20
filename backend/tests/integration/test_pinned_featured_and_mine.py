@@ -85,31 +85,32 @@ async def test_list_with_an_invalid_token_returns_401(test_app):
 
 
 @pytest.mark.asyncio
-async def test_featured_lists_up_to_five_newest_first(test_app, destination_collection):
+async def test_pinned_lists_up_to_five_newest_first(test_app, destination_collection):
     now = datetime.now(timezone.utc)
     for index in range(6):
         await insert(
             destination_collection,
-            title=f"Featured {index}",
-            featured=True,
-            featured_at=now - timedelta(hours=index),
+            title=f"Pinned {index}",
+            pinned=True,
+            pinned_at=now - timedelta(hours=index),
         )
-    await insert(destination_collection, title="Regular")
+    await insert(destination_collection, title="Featured but not pinned", featured=True)
 
-    response = await send(test_app, "GET", "/destinations/featured")
+    response = await send(test_app, "GET", "/destinations/pinned")
 
     assert response.status_code == 200
     assert [item["title"] for item in response.json()] == [
-        "Featured 0",
-        "Featured 1",
-        "Featured 2",
-        "Featured 3",
-        "Featured 4",
+        "Pinned 0",
+        "Pinned 1",
+        "Pinned 2",
+        "Pinned 3",
+        "Pinned 4",
     ]
+    assert all(item["pinned"] for item in response.json())
 
 
 @pytest.mark.asyncio
-async def test_admin_features_and_unfeatures_a_destination(
+async def test_admin_pins_and_unpins_a_destination(
     test_app,
     user_collection,
     destination_collection,
@@ -117,71 +118,128 @@ async def test_admin_features_and_unfeatures_a_destination(
     _, headers = await create_user(user_collection, "admin@example.com", "admin")
     destination_id = await insert(destination_collection)
 
-    featured = await send(
+    pinned = await send(
         test_app,
         "PATCH",
-        f"/destinations/{destination_id}/featured",
-        json={"featured": True},
+        f"/destinations/{destination_id}/pinned",
+        json={"pinned": True},
         headers=headers,
     )
     stored = await destination_collection.find_one({"_id": ObjectId(destination_id)})
 
-    assert featured.status_code == 200
-    assert featured.json()["featured"] is True
-    assert stored["featured_at"] is not None
+    assert pinned.status_code == 200
+    assert pinned.json()["pinned"] is True
+    assert pinned.json()["featured"] is False
+    assert stored["pinned_at"] is not None
 
-    unfeatured = await send(
+    unpinned = await send(
         test_app,
         "PATCH",
-        f"/destinations/{destination_id}/featured",
-        json={"featured": False},
+        f"/destinations/{destination_id}/pinned",
+        json={"pinned": False},
         headers=headers,
     )
     stored = await destination_collection.find_one({"_id": ObjectId(destination_id)})
 
-    assert unfeatured.json()["featured"] is False
-    assert "featured_at" not in stored
+    assert unpinned.json()["pinned"] is False
+    assert "pinned_at" not in stored
 
 
 @pytest.mark.asyncio
-async def test_sixth_featured_destination_is_refused(
+async def test_sixth_pinned_destination_is_refused(
     test_app,
     user_collection,
     destination_collection,
 ):
     _, headers = await create_user(user_collection, "admin@example.com", "admin")
-    already_featured = None
+    already_pinned = None
     for _ in range(5):
-        already_featured = await insert(destination_collection, featured=True)
+        already_pinned = await insert(destination_collection, pinned=True)
     candidate = await insert(destination_collection)
 
     refused = await send(
+        test_app,
+        "PATCH",
+        f"/destinations/{candidate}/pinned",
+        json={"pinned": True},
+        headers=headers,
+    )
+    kept = await send(
+        test_app,
+        "PATCH",
+        f"/destinations/{already_pinned}/pinned",
+        json={"pinned": True},
+        headers=headers,
+    )
+
+    assert refused.status_code == 409
+    assert "Only 5 destinations can be pinned" in refused.json()["detail"]
+    assert kept.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_featured_has_no_limit_and_does_not_pin(
+    test_app,
+    user_collection,
+    destination_collection,
+):
+    _, headers = await create_user(user_collection, "admin@example.com", "admin")
+    for _ in range(48):
+        await insert(destination_collection, featured=True)
+    candidate = await insert(destination_collection)
+
+    response = await send(
         test_app,
         "PATCH",
         f"/destinations/{candidate}/featured",
         json={"featured": True},
         headers=headers,
     )
-    kept = await send(
-        test_app,
-        "PATCH",
-        f"/destinations/{already_featured}/featured",
-        json={"featured": True},
-        headers=headers,
-    )
+    slider = await send(test_app, "GET", "/destinations/pinned")
 
-    assert refused.status_code == 409
-    assert "Only 5 destinations can be featured" in refused.json()["detail"]
-    assert kept.status_code == 200
+    assert response.status_code == 200
+    assert response.json()["featured"] is True
+    assert response.json()["pinned"] is False
+    assert slider.json() == []
 
 
 @pytest.mark.asyncio
+async def test_featured_and_pinned_are_independent(
+    test_app,
+    user_collection,
+    destination_collection,
+):
+    _, headers = await create_user(user_collection, "admin@example.com", "admin")
+    destination_id = await insert(destination_collection, featured=True)
+
+    await send(
+        test_app,
+        "PATCH",
+        f"/destinations/{destination_id}/pinned",
+        json={"pinned": True},
+        headers=headers,
+    )
+    response = await send(
+        test_app,
+        "PATCH",
+        f"/destinations/{destination_id}/featured",
+        json={"featured": False},
+        headers=headers,
+    )
+
+    assert response.json()["featured"] is False
+    assert response.json()["pinned"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["featured", "pinned"])
 @pytest.mark.parametrize("role", ["editor", "subscriber"])
-async def test_only_admins_can_feature(
+async def test_only_admins_change_featured_or_pinned(
     test_app,
     user_collection,
     destination_collection,
     role,
+    route,
 ):
     user_id, headers = await create_user(user_collection, f"{role}@example.com", role)
     destination_id = await insert(destination_collection, created_by=user_id)
@@ -189,8 +247,8 @@ async def test_only_admins_can_feature(
     response = await send(
         test_app,
         "PATCH",
-        f"/destinations/{destination_id}/featured",
-        json={"featured": True},
+        f"/destinations/{destination_id}/{route}",
+        json={route: True},
         headers=headers,
     )
 
@@ -198,23 +256,25 @@ async def test_only_admins_can_feature(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["featured", "pinned"])
 @pytest.mark.parametrize(
     ("target", "status_code"),
     [("not-an-id", 400), (str(ObjectId()), 404)],
 )
-async def test_feature_unknown_destination(
+async def test_change_status_of_unknown_destination(
     test_app,
     user_collection,
     target,
     status_code,
+    route,
 ):
     _, headers = await create_user(user_collection, "admin@example.com", "admin")
 
     response = await send(
         test_app,
         "PATCH",
-        f"/destinations/{target}/featured",
-        json={"featured": True},
+        f"/destinations/{target}/{route}",
+        json={route: True},
         headers=headers,
     )
 
@@ -222,24 +282,25 @@ async def test_feature_unknown_destination(
 
 
 @pytest.mark.asyncio
-async def test_create_cannot_feature_a_destination(test_app, user_collection):
+async def test_create_cannot_feature_or_pin(test_app, user_collection):
     _, headers = await create_user(user_collection, "editor@example.com", "editor")
 
     response = await send(
         test_app,
         "POST",
         "/destinations/",
-        json={**DESTINATION, "featured": True},
+        json={**DESTINATION, "featured": True, "pinned": True},
         headers=headers,
     )
 
     assert response.status_code == 200
     assert response.json()["featured"] is False
+    assert response.json()["pinned"] is False
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("stored", "sent"), [(False, True), (True, False)])
-async def test_edit_keeps_the_stored_featured_value(
+async def test_edit_keeps_the_stored_featured_and_pinned_values(
     test_app,
     user_collection,
     destination_collection,
@@ -248,16 +309,17 @@ async def test_edit_keeps_the_stored_featured_value(
 ):
     editor_id, headers = await create_user(user_collection, "editor@example.com", "editor")
     destination_id = await insert(
-        destination_collection, created_by=editor_id, featured=stored
+        destination_collection, created_by=editor_id, featured=stored, pinned=stored
     )
 
     response = await send(
         test_app,
         "PUT",
         f"/destinations/{destination_id}",
-        json={**DESTINATION, "featured": sent},
+        json={**DESTINATION, "featured": sent, "pinned": sent},
         headers=headers,
     )
 
     assert response.status_code == 200
     assert response.json()["featured"] is stored
+    assert response.json()["pinned"] is stored

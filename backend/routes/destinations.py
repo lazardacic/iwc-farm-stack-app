@@ -9,13 +9,14 @@ from database.dependencies import (
     get_upload_collection,
 )
 from models.destination import (
-    MAX_FEATURED_DESTINATIONS,
+    MAX_PINNED_DESTINATIONS,
     DestinationCreate,
     DestinationFilters,
     DestinationPage,
     DestinationResponse,
     DestinationSort,
     FeaturedUpdate,
+    PinnedUpdate,
 )
 from models.user import UserResponse
 from routes.auth import OptionalUser, PublisherUser, require_roles
@@ -25,10 +26,11 @@ from services.destination_images import (
     resolve_upload_public_id,
 )
 from services.destination_service import (
-    count_featured_destinations,
+    count_pinned_destinations,
     get_all_destinations,
-    get_featured_destinations,
+    get_pinned_destinations,
     set_destination_featured,
+    set_destination_pinned,
     get_destination_countries,
     get_destination,
     get_destination_document,
@@ -113,11 +115,11 @@ async def fetch_destinations(
     )
 
 
-@router.get("/featured", response_model=list[DestinationResponse])
-async def fetch_featured_destinations(
+@router.get("/pinned", response_model=list[DestinationResponse])
+async def fetch_pinned_destinations(
     collection: DestinationCollection,
 ):
-    return await get_featured_destinations(collection, MAX_FEATURED_DESTINATIONS)
+    return await get_pinned_destinations(collection, MAX_PINNED_DESTINATIONS)
 
 
 @router.get("/countries", response_model=list[str])
@@ -179,8 +181,9 @@ async def add_destination(
 ):
     data = destination.model_dump()
     data["created_by"] = current_user.id
-    # Only admins feature destinations, through PATCH /{id}/featured.
+    # Featured and pinned are admin-only statuses, changed through their own PATCH routes.
     data["featured"] = False
+    data["pinned"] = False
     data["image"], data["image_public_id"] = await resolve_image(
         uploads, data["image"], current_user
     )
@@ -218,7 +221,7 @@ async def edit_destination(
         )
 
     data = destination.model_dump()
-    # Featuring is admin-only and capped, so edits keep the stored value.
+    # Featured is admin-only, so edits keep the stored value; pinned is never in the body.
     data["featured"] = existing.get("featured", False)
     previous_public_id = existing.get("image_public_id")
 
@@ -286,13 +289,7 @@ async def remove_destination(
     return deleted
 
 
-@router.patch("/{id}/featured", response_model=DestinationResponse)
-async def change_destination_featured(
-    id: str,
-    payload: FeaturedUpdate,
-    collection: DestinationCollection,
-    current_user: AdminUser,
-):
+async def get_existing_or_404(collection, id: str) -> dict:
     try:
         existing = await get_destination(collection, id)
     except ValueError:
@@ -307,14 +304,38 @@ async def change_destination_featured(
             detail="Destination not found",
         )
 
-    adding = payload.featured and not existing["featured"]
-    if adding and await count_featured_destinations(collection) >= MAX_FEATURED_DESTINATIONS:
+    return existing
+
+
+@router.patch("/{id}/featured", response_model=DestinationResponse)
+async def change_destination_featured(
+    id: str,
+    payload: FeaturedUpdate,
+    collection: DestinationCollection,
+    current_user: AdminUser,
+):
+    await get_existing_or_404(collection, id)
+
+    return await set_destination_featured(collection, id, payload.featured)
+
+
+@router.patch("/{id}/pinned", response_model=DestinationResponse)
+async def change_destination_pinned(
+    id: str,
+    payload: PinnedUpdate,
+    collection: DestinationCollection,
+    current_user: AdminUser,
+):
+    existing = await get_existing_or_404(collection, id)
+
+    adding = payload.pinned and not existing["pinned"]
+    if adding and await count_pinned_destinations(collection) >= MAX_PINNED_DESTINATIONS:
         raise HTTPException(
             status_code=409,
             detail=(
-                f"Only {MAX_FEATURED_DESTINATIONS} destinations can be featured. "
-                "Remove one first."
+                f"Only {MAX_PINNED_DESTINATIONS} destinations can be pinned to the home page. "
+                "Unpin one first."
             ),
         )
 
-    return await set_destination_featured(collection, id, payload.featured)
+    return await set_destination_pinned(collection, id, payload.pinned)

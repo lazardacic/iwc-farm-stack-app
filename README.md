@@ -79,7 +79,8 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - Destination filters by country, price range, minimum rating, and featured status
 - Stable destination sorting by price, rating, title, or creation order
 - Search, filters, sort and page kept in the URL (`/?country=Japan&sort=price_asc&page=2`), so views can be shared, bookmarked and restored with Back
-- Featured slider at the top of the home page: up to 5 destinations chosen by admins, with arrows, dots and swipe, and no autoplay
+- Two independent admin statuses: **featured** (a badge and a filter, no limit) and **pinned** (the slider at the top of the home page, at most 5)
+- Home page slider of pinned destinations, with arrows, dots and swipe, and no autoplay
 - "My destinations" page for editors and admins, listing only what they published
 - Destination pages laid out like a blog post: large image, readable text column and a trip details panel
 - Inter and Plus Jakarta Sans fonts, bundled with the app
@@ -175,7 +176,7 @@ This creates:
 - `editor@example.com` / `editor1234`
 - `subscriber@example.com` / `subscriber1234`
 
-Run `seed_users.py` before `seed.py`: the 99 seeded destinations then belong to `editor@example.com`, so that account has destinations of its own to edit. Five of them are featured.
+Run `seed_users.py` before `seed.py`: the 99 seeded destinations then belong to `editor@example.com`, so that account has destinations of its own to edit. About half of them are featured, and five are pinned to the slider.
 
 ### Roles
 
@@ -185,7 +186,8 @@ Run `seed_users.py` before `seed.py`: the 99 seeded destinations then belong to 
 | Create destinations and upload images | yes | yes | no |
 | Edit destinations | all | only their own | no |
 | Delete destinations | yes | no | no |
-| Feature destinations on the home page | yes | no | no |
+| Mark destinations as featured | yes | no | no |
+| Pin destinations to the home page slider | yes | no | no |
 | See "My destinations" | yes | yes | no |
 | List users and change roles | yes | no | no |
 
@@ -211,7 +213,7 @@ src/
 │   │               Modal, SearchBar, Select, Pagination, EmptyState, ErrorState
 │   ├── forms/      DestinationForm.tsx, AuthForm.tsx, ImageInput.tsx
 │   ├── destination/  DestinationCard.tsx, DestinationCardSkeleton.tsx, DestinationFilters.tsx,
-│   │               DestinationImage.tsx, FeaturedSlider.tsx
+│   │               DestinationImage.tsx, PinnedSlider.tsx
 │   └── layout/     Navbar, Footer, MainLayout, ThemeToggle
 ├── context/        ThemeContext.tsx, ThemeProvider.tsx
 ├── store/          authStore.ts (Zustand)
@@ -244,8 +246,9 @@ Public files in `frontend/public/` include `placeholders/`, six grayscale SVGs a
 | --- | --- | --- | --- |
 | `GET` | `/destinations?page=1&page_size=9&search=Japan` | Search, filter, and list a page of destinations | 200 |
 | `GET` | `/destinations/countries` | List distinct destination countries | 200 |
-| `GET` | `/destinations/featured` | Up to 5 featured destinations, most recently featured first | 200 |
-| `PATCH` | `/destinations/{id}/featured` | Feature or unfeature (`{"featured": true}`); admin only; 409 when 5 are already featured | 200 |
+| `GET` | `/destinations/pinned` | Up to 5 pinned destinations for the home slider, most recently pinned first | 200 |
+| `PATCH` | `/destinations/{id}/featured` | Mark or unmark as featured (`{"featured": true}`); admin only; no limit | 200 |
+| `PATCH` | `/destinations/{id}/pinned` | Pin or unpin (`{"pinned": true}`); admin only; 409 when 5 are already pinned | 200 |
 | `GET` | `/destinations/{id}` | Get one destination | 200 |
 | `POST` | `/destinations` | Create a destination (admin, editor) | 200 |
 | `PUT` | `/destinations/{id}` | Update a destination (admin, or the editor who created it) | 200 |
@@ -351,10 +354,11 @@ A destination is one self contained document. No joins, no transformation layer 
 | `image` | string: `http(s)` URL or relative path | no; empty gets a placeholder |
 | `price` | number (greater than 0) | yes |
 | `rating` | number (0 to 5) | yes |
-| `featured` | boolean | changed only through `PATCH /destinations/{id}/featured`; create and update ignore it |
+| `featured` | boolean | a badge and filter, independent of `pinned`; changed only through `PATCH /destinations/{id}/featured`; create and update ignore it |
 | `tags` | string[] | no |
 | `created_by` | string (user id) | set by the backend on create |
-| `featured_at` | datetime | set by the backend when an admin features the destination; orders the slider |
+| `pinned` | boolean | shown in the home slider; changed only through `PATCH /destinations/{id}/pinned` |
+| `pinned_at` | datetime | set when the destination is pinned; orders the slider |
 | `image_public_id` | string | internal; set when `image` is one of our uploads, never returned |
 
 ## Configuration

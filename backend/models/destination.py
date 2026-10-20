@@ -34,6 +34,8 @@ class DestinationCreate(Destination):
 class DestinationResponse(Destination):
     id: str
     created_by: Optional[str] = None
+    # Shown in the home page slider; independent of "featured".
+    pinned: bool = False
 
 
 DestinationSort = Literal[
@@ -46,12 +48,16 @@ DestinationSort = Literal[
 ]
 
 
-# How many destinations the home page slider shows; admins cannot feature more.
-MAX_FEATURED_DESTINATIONS = 5
+# How many destinations the home page slider shows; admins cannot pin more.
+MAX_PINNED_DESTINATIONS = 5
 
 
 class FeaturedUpdate(BaseModel):
     featured: bool
+
+
+class PinnedUpdate(BaseModel):
+    pinned: bool
 
 
 class DestinationFilters(BaseModel):

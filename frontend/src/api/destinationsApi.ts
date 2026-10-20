@@ -64,8 +64,18 @@ export const getAllDestinations = async ({
   return response.data;
 };
 
-export const getFeaturedDestinations = async (): Promise<Destination[]> => {
-  const response = await axiosClient.get("/destinations/featured");
+export const getPinnedDestinations = async (): Promise<Destination[]> => {
+  const response = await axiosClient.get("/destinations/pinned");
+  return response.data;
+};
+
+export const setDestinationPinned = async (
+  id: string,
+  pinned: boolean,
+): Promise<Destination> => {
+  const response = await axiosClient.patch(`/destinations/${id}/pinned`, {
+    pinned,
+  });
   return response.data;
 };
 

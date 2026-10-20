@@ -9,7 +9,7 @@ import {
   FiStar,
 } from "react-icons/fi";
 
-import { getFeaturedDestinations } from "../../api/destinationsApi";
+import { getPinnedDestinations } from "../../api/destinationsApi";
 import { formatPrice, formatRating } from "../../utils/formatters";
 
 import DestinationImage from "./DestinationImage";
@@ -38,19 +38,20 @@ const arrowClasses = `
   sm:flex
 `;
 
+// Destinations admins pinned to the top of the home page (at most 5).
 // Scroll-snap slider: native swipe and scrolling, no autoplay, no animation library.
-const FeaturedSlider = () => {
+const PinnedSlider = () => {
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
 
   const { data: slides = [], isLoading } = useQuery({
-    queryKey: ["destinations", "featured"],
-    queryFn: getFeaturedDestinations,
+    queryKey: ["destinations", "pinned"],
+    queryFn: getPinnedDestinations,
   });
 
   if (isLoading) {
     return (
-      <div aria-busy="true" aria-label="Loading featured destinations" className="mb-12">
+      <div aria-busy="true" aria-label="Loading highlighted destinations" className="mb-12">
         <Skeleton className="h-105 w-full rounded-3xl sm:h-120" />
       </div>
     );
@@ -79,7 +80,7 @@ const FeaturedSlider = () => {
   return (
     <section
       aria-roledescription="carousel"
-      aria-label="Featured destinations"
+      aria-label="Highlighted destinations"
       className="relative mb-12 overflow-hidden rounded-3xl bg-slate-900"
     >
       <div
@@ -106,9 +107,11 @@ const FeaturedSlider = () => {
             />
 
             <div className="relative flex h-full max-w-2xl flex-col justify-end p-6 sm:p-10">
-              <span className="mb-4 w-fit rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
-                Featured
-              </span>
+              {destination.featured && (
+                <span className="mb-4 w-fit rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
+                  Featured
+                </span>
+              )}
 
               <p className="flex items-center gap-1.5 text-sm font-medium text-white/85">
                 <FiMapPin aria-hidden="true" />
@@ -146,7 +149,7 @@ const FeaturedSlider = () => {
             className={`${arrowClasses} left-4`}
             onClick={() => goTo(active - 1)}
             disabled={active === 0}
-            aria-label="Previous featured destination"
+            aria-label="Previous highlighted destination"
           >
             <FiChevronLeft size={22} aria-hidden="true" />
           </button>
@@ -155,7 +158,7 @@ const FeaturedSlider = () => {
             className={`${arrowClasses} right-4`}
             onClick={() => goTo(active + 1)}
             disabled={active === slides.length - 1}
-            aria-label="Next featured destination"
+            aria-label="Next highlighted destination"
           >
             <FiChevronRight size={22} aria-hidden="true" />
           </button>
@@ -166,7 +169,7 @@ const FeaturedSlider = () => {
                 key={destination.id}
                 type="button"
                 onClick={() => goTo(index)}
-                aria-label={`Show featured destination ${index + 1}`}
+                aria-label={`Show highlighted destination ${index + 1}`}
                 aria-current={index === active}
                 className={`h-2.5 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
                   index === active ? "w-8 bg-white" : "w-2.5 bg-white/50 hover:bg-white/80"
@@ -180,4 +183,4 @@ const FeaturedSlider = () => {
   );
 };
 
-export default FeaturedSlider;
+export default PinnedSlider;

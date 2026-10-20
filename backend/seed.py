@@ -3,7 +3,7 @@ import random
 from datetime import datetime, timedelta, timezone
 
 from database.connection import create_mongo_client, get_database
-from models.destination import MAX_FEATURED_DESTINATIONS
+from models.destination import MAX_PINNED_DESTINATIONS
 from services.destination_images import random_placeholder
 
 
@@ -74,19 +74,20 @@ for index in range(99):
         "rating": round(random.uniform(3.5, 5.0), 1),
         "image": random_placeholder(),
         "tags": random.sample(all_tags, k=random.randint(2, 4)),
-        "featured": False,
+        "featured": random.choice([True, False]),
+        "pinned": False,
     }
 
     mock_destinations.append(destination)
 
 
-# The home page slider shows at most this many featured destinations.
+# The home page slider shows at most this many pinned destinations.
 now = datetime.now(timezone.utc)
 for position, destination in enumerate(
-    random.sample(mock_destinations, k=MAX_FEATURED_DESTINATIONS)
+    random.sample(mock_destinations, k=MAX_PINNED_DESTINATIONS)
 ):
-    destination["featured"] = True
-    destination["featured_at"] = now - timedelta(minutes=position)
+    destination["pinned"] = True
+    destination["pinned_at"] = now - timedelta(minutes=position)
 
 
 async def seed_database():

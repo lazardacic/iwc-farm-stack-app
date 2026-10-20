@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import {
   FiArrowLeft,
+  FiBookmark,
   FiEdit2,
   FiMapPin,
   FiStar,
@@ -15,6 +16,7 @@ import {
   deleteDestination,
   getDestination,
   setDestinationFeatured,
+  setDestinationPinned,
 } from "../api/destinationsApi";
 import { useAuth } from "../hooks/useAuth";
 import { getApiErrorMessage } from "../utils/apiError";
@@ -22,15 +24,13 @@ import { formatPrice, formatRating, toParagraphs } from "../utils/formatters";
 import { canEditDestination } from "../utils/permissions";
 
 import DestinationImage from "../components/destination/DestinationImage";
-import Button from "../components/ui/Button";
-import Card from "../components/ui/Card";
 import ErrorState from "../components/ui/ErrorState";
 import Modal from "../components/ui/Modal";
 import Skeleton from "../components/ui/Skeleton";
 
 const DestinationDetails = () => {
   const { id = "" } = useParams();
-  const { isAdmin, isAuthenticated, canPublish, user } = useAuth();
+  const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -48,18 +48,25 @@ const DestinationDetails = () => {
     enabled: Boolean(id),
   });
 
-  const featureMutation = useMutation({
-    mutationFn: (featured: boolean) => setDestinationFeatured(id, featured),
-    onSuccess: (updated) => {
+  // Featured (a badge, no limit) and pinned (the home slider, at most 5) are independent.
+  const statusMutation = useMutation({
+    mutationFn: ({ status, value }: { status: "featured" | "pinned"; value: boolean }) =>
+      status === "featured"
+        ? setDestinationFeatured(id, value)
+        : setDestinationPinned(id, value),
+    onSuccess: (updated, { status, value }) => {
       queryClient.setQueryData(detailKey, updated);
       void queryClient.invalidateQueries({ queryKey: ["destinations"] });
-      toast.success(
-        updated.featured ? "Added to featured destinations" : "Removed from featured",
-      );
+
+      const messages = {
+        featured: value ? "Marked as featured" : "Removed featured mark",
+        pinned: value ? "Pinned to the home page slider" : "Unpinned from the home page slider",
+      };
+      toast.success(messages[status]);
     },
     onError: (error) => {
       if (!isAuthStatusError(error)) {
-        toast.error(getApiErrorMessage(error, "Unable to update featured status"));
+        toast.error(getApiErrorMessage(error, "Unable to update the destination"));
       }
     },
   });
@@ -91,7 +98,7 @@ const DestinationDetails = () => {
   if (isLoading) {
     return (
       <section
-        className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12"
+        className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12"
         aria-busy="true"
         aria-label="Loading destination"
       >
@@ -126,166 +133,153 @@ const DestinationDetails = () => {
 
   const canEdit = canEditDestination(user, destination);
   const paragraphs = toParagraphs(destination.description);
+  const actionClasses =
+    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
     <>
-      <article className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
-        <button
-          type="button"
-          onClick={goBack}
-          className="flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-        >
-          <FiArrowLeft aria-hidden="true" />
-          All destinations
-        </button>
+      <article className="px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mx-auto max-w-3xl">
+          <button
+            type="button"
+            onClick={goBack}
+            className="flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          >
+            <FiArrowLeft aria-hidden="true" />
+            All destinations
+          </button>
 
-        <header className="mt-8 max-w-3xl">
-          <p className="flex flex-wrap items-center gap-3 text-sm font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-400">
-            <span className="flex items-center gap-1.5">
-              <FiMapPin aria-hidden="true" />
-              {destination.country}
-            </span>
-            {destination.featured && (
-              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs text-amber-800 dark:bg-amber-400/15 dark:text-amber-300">
-                Featured
+          <header className="mt-10">
+            <p className="flex flex-wrap items-center gap-3 text-sm font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-400">
+              <span className="flex items-center gap-1.5">
+                <FiMapPin aria-hidden="true" />
+                {destination.country}
               </span>
+              {destination.featured && (
+                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs text-amber-800 dark:bg-amber-400/15 dark:text-amber-300">
+                  Featured
+                </span>
+              )}
+              {isAdmin && destination.pinned && (
+                <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs text-blue-800 dark:bg-blue-400/15 dark:text-blue-300">
+                  Pinned
+                </span>
+              )}
+            </p>
+
+            <h1 className="mt-3 text-4xl font-bold leading-tight tracking-tight text-slate-900 sm:text-5xl dark:text-white">
+              {destination.title}
+            </h1>
+
+            <p className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-slate-600 dark:text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <FiStar className="fill-amber-400 text-amber-400" aria-hidden="true" />
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {formatRating(destination.rating)}
+                </span>
+                / 5
+              </span>
+              <span>
+                From{" "}
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {formatPrice(destination.price)}
+                </span>
+              </span>
+            </p>
+
+            {(canEdit || isAdmin) && (
+              <div
+                role="toolbar"
+                aria-label="Manage destination"
+                className="mt-6 flex flex-wrap gap-2 border-y border-slate-200 py-3 dark:border-slate-800"
+              >
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/edit/${destination.id}`)}
+                    className={`${actionClasses} text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800`}
+                  >
+                    <FiEdit2 aria-hidden="true" />
+                    Edit destination
+                  </button>
+                )}
+
+                {isAdmin && (
+                  <button
+                    type="button"
+                    disabled={statusMutation.isPending}
+                    onClick={() =>
+                      statusMutation.mutate({ status: "featured", value: !destination.featured })
+                    }
+                    className={`${actionClasses} text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800`}
+                  >
+                    <FiStar aria-hidden="true" />
+                    {destination.featured ? "Remove featured mark" : "Mark as featured"}
+                  </button>
+                )}
+
+                {isAdmin && (
+                  <button
+                    type="button"
+                    disabled={statusMutation.isPending}
+                    onClick={() =>
+                      statusMutation.mutate({ status: "pinned", value: !destination.pinned })
+                    }
+                    className={`${actionClasses} text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800`}
+                  >
+                    <FiBookmark aria-hidden="true" />
+                    {destination.pinned ? "Unpin from home slider" : "Pin to home slider"}
+                  </button>
+                )}
+
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteModal(true)}
+                    className={`${actionClasses} ml-auto text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10`}
+                  >
+                    <FiTrash2 aria-hidden="true" />
+                    Delete
+                  </button>
+                )}
+              </div>
             )}
-          </p>
+          </header>
+        </div>
 
-          <h1 className="mt-3 text-4xl font-bold leading-tight tracking-tight text-slate-900 sm:text-5xl dark:text-white">
-            {destination.title}
-          </h1>
-
-          <p className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-slate-600 dark:text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <FiStar className="fill-amber-400 text-amber-400" aria-hidden="true" />
-              <span className="font-semibold text-slate-900 dark:text-white">
-                {formatRating(destination.rating)}
-              </span>
-              / 5
-            </span>
-            <span>
-              From{" "}
-              <span className="font-semibold text-slate-900 dark:text-white">
-                {formatPrice(destination.price)}
-              </span>
-            </span>
-          </p>
-        </header>
-
-        <div className="mt-8 overflow-hidden rounded-3xl bg-slate-100 dark:bg-slate-800">
+        {/* The image is a little wider than the text column, as in a magazine layout. */}
+        <figure className="mx-auto mt-10 max-w-5xl overflow-hidden rounded-3xl bg-slate-100 dark:bg-slate-800">
           <DestinationImage
             src={destination.image}
             alt={destination.title}
             className="aspect-video w-full object-cover"
           />
-        </div>
+        </figure>
 
-        <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-14">
-          <div className="max-w-prose">
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-              About this destination
-            </h2>
-
-            <div className="mt-4 space-y-5 text-lg leading-8 text-slate-700 dark:text-slate-300">
-              {paragraphs.map((paragraph, index) => (
-                <p key={index} className="whitespace-pre-line">
-                  {paragraph}
-                </p>
-              ))}
-            </div>
-
-            {destination.tags.length > 0 && (
-              <ul className="mt-8 flex flex-wrap gap-2" aria-label="Tags">
-                {destination.tags.map((tag) => (
-                  <li
-                    key={tag}
-                    className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                  >
-                    {tag}
-                  </li>
-                ))}
-              </ul>
-            )}
+        <div className="mx-auto mt-12 max-w-3xl">
+          <div className="space-y-6 text-lg leading-8 text-slate-700 dark:text-slate-300">
+            {paragraphs.map((paragraph, index) => (
+              <p key={index} className="whitespace-pre-line">
+                {paragraph}
+              </p>
+            ))}
           </div>
 
-          <aside className="lg:sticky lg:top-24 lg:self-start">
-            <Card className="p-6">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Trip details</h2>
-
-              <dl className="mt-4 divide-y divide-slate-100 text-sm dark:divide-slate-800">
-                <div className="flex justify-between py-3">
-                  <dt className="text-slate-600 dark:text-slate-400">Country</dt>
-                  <dd className="font-semibold text-slate-900 dark:text-white">
-                    {destination.country}
-                  </dd>
-                </div>
-                <div className="flex justify-between py-3">
-                  <dt className="text-slate-600 dark:text-slate-400">Price from</dt>
-                  <dd className="font-semibold text-slate-900 dark:text-white">
-                    {formatPrice(destination.price)}
-                  </dd>
-                </div>
-                <div className="flex justify-between py-3">
-                  <dt className="text-slate-600 dark:text-slate-400">Rating</dt>
-                  <dd className="font-semibold text-slate-900 dark:text-white">
-                    {formatRating(destination.rating)} / 5
-                  </dd>
-                </div>
-              </dl>
-
-              {(canEdit || isAdmin) && (
-                <div className="mt-6 flex flex-col gap-3">
-                  {canEdit && (
-                    <Button
-                      onClick={() => navigate(`/edit/${destination.id}`)}
-                      className="flex items-center justify-center gap-2"
-                    >
-                      <FiEdit2 aria-hidden="true" />
-                      Edit destination
-                    </Button>
-                  )}
-
-                  {isAdmin && (
-                    <Button
-                      variant="outline"
-                      disabled={featureMutation.isPending}
-                      onClick={() => featureMutation.mutate(!destination.featured)}
-                      className="flex items-center justify-center gap-2"
-                    >
-                      <FiStar aria-hidden="true" />
-                      {destination.featured ? "Remove from featured" : "Feature on home page"}
-                    </Button>
-                  )}
-
-                  {isAdmin && (
-                    <Button
-                      variant="danger"
-                      onClick={() => setDeleteModal(true)}
-                      className="flex items-center justify-center gap-2"
-                    >
-                      <FiTrash2 aria-hidden="true" />
-                      Delete
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {!isAuthenticated && (
-                <p className="mt-6 text-sm text-slate-600 dark:text-slate-400">
-                  Sign in as an editor to manage destinations.
-                </p>
-              )}
-
-              {canPublish && !isAdmin && (
-                <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
-                  {canEdit
-                    ? "Only administrators can delete destinations."
-                    : "Editors can edit only the destinations they created."}
-                </p>
-              )}
-            </Card>
-          </aside>
+          {destination.tags.length > 0 && (
+            <ul
+              className="mt-10 flex flex-wrap gap-2 border-t border-slate-200 pt-6 dark:border-slate-800"
+              aria-label="Tags"
+            >
+              {destination.tags.map((tag) => (
+                <li
+                  key={tag}
+                  className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                >
+                  #{tag}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </article>
 

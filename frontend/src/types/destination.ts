@@ -9,6 +9,8 @@ export interface Destination {
   tags: string[];
   featured: boolean;
   created_by?: string | null;
+  // In the home page slider; independent of "featured".
+  pinned?: boolean;
 }
 
 export interface DestinationPage {
