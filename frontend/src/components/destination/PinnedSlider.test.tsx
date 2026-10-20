@@ -69,7 +69,10 @@ describe("PinnedSlider", () => {
     renderWithProviders(<PinnedSlider />);
     await screen.findByText("Kyoto Temples");
 
-    expect(screen.getByRole("button", { name: "Previous highlighted destination" })).toBeDisabled();
+    // No "previous" arrow on the first slide; it appears once there is somewhere to go back to.
+    expect(
+      screen.queryByRole("button", { name: "Previous highlighted destination" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Next highlighted destination" }));
     fireEvent.click(screen.getByRole("button", { name: "Show highlighted destination 2" }));

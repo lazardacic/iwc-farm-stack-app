@@ -29,14 +29,21 @@ const arrowClasses = `
   bg-white/90
   text-slate-900
   shadow-md
+  opacity-0
   transition
+  duration-200
   hover:bg-white
   focus-visible:outline-none
   focus-visible:ring-2
   focus-visible:ring-white
-  disabled:opacity-0
   sm:flex
+
+  group-hover:opacity-100
+  group-has-[:focus-visible]:opacity-100
+  pointer-coarse:opacity-100
 `;
+// Arrows appear on hover. They also stay visible while keyboard focus (not a mouse click) is inside
+// the slider, and on touch screens, which have no hover.
 
 // Destinations admins pinned to the top of the home page (at most 5).
 // Scroll-snap slider: native swipe and scrolling, no autoplay, no animation library.
@@ -81,7 +88,7 @@ const PinnedSlider = () => {
     <section
       aria-roledescription="carousel"
       aria-label="Highlighted destinations"
-      className="relative mb-12 overflow-hidden rounded-3xl bg-slate-900"
+      className="group relative mb-12 overflow-hidden rounded-3xl bg-slate-900"
     >
       <div
         ref={trackRef}
@@ -144,24 +151,26 @@ const PinnedSlider = () => {
 
       {slides.length > 1 && (
         <>
-          <button
-            type="button"
-            className={`${arrowClasses} left-4`}
-            onClick={() => goTo(active - 1)}
-            disabled={active === 0}
-            aria-label="Previous highlighted destination"
-          >
-            <FiChevronLeft size={22} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={`${arrowClasses} right-4`}
-            onClick={() => goTo(active + 1)}
-            disabled={active === slides.length - 1}
-            aria-label="Next highlighted destination"
-          >
-            <FiChevronRight size={22} aria-hidden="true" />
-          </button>
+          {active > 0 && (
+            <button
+              type="button"
+              className={`${arrowClasses} left-4`}
+              onClick={() => goTo(active - 1)}
+              aria-label="Previous highlighted destination"
+            >
+              <FiChevronLeft size={22} aria-hidden="true" />
+            </button>
+          )}
+          {active < slides.length - 1 && (
+            <button
+              type="button"
+              className={`${arrowClasses} right-4`}
+              onClick={() => goTo(active + 1)}
+              aria-label="Next highlighted destination"
+            >
+              <FiChevronRight size={22} aria-hidden="true" />
+            </button>
+          )}
 
           <div className="absolute bottom-6 right-6 z-10 flex gap-2 sm:bottom-10 sm:right-10">
             {slides.map((destination, index) => (
