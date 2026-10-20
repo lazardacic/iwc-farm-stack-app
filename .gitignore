@@ -104,3 +104,9 @@ docker-compose.override.yml
 # Local image uploads (IMAGE_STORAGE=local)
 # =========================
 backend/media/
+
+# =========================
+# Stray npm lockfile in the repository root
+# (npm runs in frontend/; running it here creates an empty lockfile)
+# =========================
+/package-lock.json
