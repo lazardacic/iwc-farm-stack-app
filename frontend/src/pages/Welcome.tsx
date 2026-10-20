@@ -70,6 +70,12 @@ const Welcome = () => {
             </Link>
           )}
 
+          {canPublish && (
+            <Link to="/my-destinations" className={linkClasses}>
+              My destinations
+            </Link>
+          )}
+
           {isAdmin && (
             <Link to="/admin/users" className={linkClasses}>
               Manage users

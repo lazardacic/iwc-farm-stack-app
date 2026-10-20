@@ -76,7 +76,7 @@ const ImageInput = ({
 
       <div
         className="
-          aspect-[4/3]
+          aspect-4/3
           w-full
           overflow-hidden
           rounded-xl

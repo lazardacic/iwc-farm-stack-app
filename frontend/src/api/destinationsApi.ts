@@ -12,6 +12,8 @@ interface DestinationPageParams {
   search: string;
   filters?: DestinationFilters;
   sort?: DestinationSort;
+  // Only the signed-in user's own destinations.
+  mine?: boolean;
 }
 
 export const toFilterParams = (filters?: DestinationFilters) => {
@@ -47,6 +49,7 @@ export const getAllDestinations = async ({
   search,
   filters,
   sort = "oldest",
+  mine = false,
 }: DestinationPageParams): Promise<DestinationPage> => {
   const response = await axiosClient.get("/destinations/", {
     params: {
@@ -54,8 +57,24 @@ export const getAllDestinations = async ({
       page_size: pageSize,
       search,
       sort,
+      ...(mine ? { mine: true } : {}),
       ...toFilterParams(filters),
     },
+  });
+  return response.data;
+};
+
+export const getFeaturedDestinations = async (): Promise<Destination[]> => {
+  const response = await axiosClient.get("/destinations/featured");
+  return response.data;
+};
+
+export const setDestinationFeatured = async (
+  id: string,
+  featured: boolean,
+): Promise<Destination> => {
+  const response = await axiosClient.patch(`/destinations/${id}/featured`, {
+    featured,
   });
   return response.data;
 };

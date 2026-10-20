@@ -10,6 +10,7 @@ import DestinationDetails from "../pages/DestinationDetails";
 import CreateDestination from "../pages/CreateDestination";
 import EditDestination from "../pages/EditDestination";
 import Login from "../pages/Login";
+import MyDestinations from "../pages/MyDestinations";
 import NotFound from "../pages/NotFound";
 import Register from "../pages/Register";
 import Welcome from "../pages/Welcome";
@@ -34,6 +35,7 @@ const AppRoutes = () => {
 
         <Route element={<ProtectedRoute allowedRoles={PUBLISHER_ROLES} />}>
           <Route path="/create" element={<CreateDestination />} />
+          <Route path="/my-destinations" element={<MyDestinations />} />
           <Route path="/edit/:id" element={<EditDestination />} />
         </Route>
 

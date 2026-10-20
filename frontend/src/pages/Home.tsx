@@ -32,6 +32,7 @@ import Select from "../components/ui/Select";
 import DestinationCard from "../components/destination/DestinationCard";
 import DestinationCardSkeleton from "../components/destination/DestinationCardSkeleton";
 import DestinationFilters from "../components/destination/DestinationFilters";
+import FeaturedSlider from "../components/destination/FeaturedSlider";
 import Button from "../components/ui/Button";
 
 const PAGE_SIZE = 9;
@@ -217,50 +218,26 @@ const Home = () => {
         mx-auto
         max-w-7xl
 
-        px-6
-        py-10
+        px-4
+        py-8
+        sm:px-6
+        sm:py-10
       "
     >
+      <FeaturedSlider />
+
       {/* Header */}
 
-      <div
-        className="
-          mb-10
-
-          flex
-          flex-col
-          gap-6
-
-          md:flex-row
-          md:items-center
-          md:justify-between
-        "
-      >
+      <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1
-            className="
-              text-3xl
-              font-bold
-              tracking-tight
-
-              text-slate-900
-
-              dark:text-white
-            "
-          >
-            Destinations
+          <p className="text-sm font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-400">
+            Explore
+          </p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl dark:text-white">
+            Find your next destination
           </h1>
-
-          <p
-            className="
-              mt-2
-
-              text-slate-500
-
-              dark:text-slate-400
-            "
-          >
-            Explore amazing places around the world.
+          <p className="mt-2 text-slate-600 dark:text-slate-400">
+            Search by place or country, then narrow down by price, rating and more.
           </p>
         </div>
 

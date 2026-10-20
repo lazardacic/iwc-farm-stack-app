@@ -1,7 +1,15 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/plus-jakarta-sans";
 @import "tailwindcss";
 
 /* Drive dark: utilities from the .dark class set by ThemeProvider instead of the OS setting. */
 @custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Inter for reading, Plus Jakarta Sans for headings and prices. */
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans Variable", "Inter Variable", ui-sans-serif, sans-serif;
+}
 
 .dark {
   color-scheme: dark;
@@ -9,15 +17,34 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   min-height: 100vh;
-  background: white;
+  background: #ffffff;
   color: #0f172a;
+  font-family: var(--font-sans);
 }
 
 .dark body {
   background: #020617;
   color: #f8fafc;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+/* Hides the scrollbar of horizontal sliders; swipe, arrows and keys still scroll. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

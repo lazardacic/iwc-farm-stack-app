@@ -84,6 +84,12 @@ const Navbar = () => {
             Home
           </NavLink>
 
+          {canPublish && (
+            <NavLink to="/my-destinations" className={linkClasses}>
+              My destinations
+            </NavLink>
+          )}
+
           {isAdmin && (
             <NavLink to="/admin/users" className={linkClasses}>
               Users
@@ -213,6 +219,16 @@ const Navbar = () => {
             >
               Home
             </NavLink>
+
+            {canPublish && (
+              <NavLink
+                to="/my-destinations"
+                onClick={() => setOpen(false)}
+                className={linkClasses}
+              >
+                My destinations
+              </NavLink>
+            )}
 
             {isAdmin && (
               <NavLink
