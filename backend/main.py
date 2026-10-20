@@ -23,6 +23,7 @@ from routes.users import router as user_router
 from services.destination_images import cleanup_orphaned_uploads
 from services.destination_service import ensure_destination_indexes
 from services.image_storage import create_image_storage
+from services.refresh_tokens import ensure_refresh_token_indexes
 from services.user_service import migrate_legacy_roles
 
 
@@ -58,6 +59,7 @@ async def lifespan(app: FastAPI):
 
     await ensure_destination_indexes(app.state.database["destinations"])
     await migrate_legacy_roles(app.state.database["users"])
+    await ensure_refresh_token_indexes(app.state.database["refresh_tokens"])
 
     cleanup_task = None
     if UPLOAD_CLEANUP_INTERVAL_HOURS > 0:

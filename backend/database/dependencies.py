@@ -25,3 +25,9 @@ def get_upload_collection(request: Request):
 
 def get_image_storage(request: Request):
     return request.app.state.image_storage
+
+
+def get_refresh_token_collection(request: Request):
+    database = get_database(request)
+
+    return database["refresh_tokens"]

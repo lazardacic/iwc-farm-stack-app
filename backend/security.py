@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 from argon2 import PasswordHasher
-from config import JWT_SECRET
+from config import ACCESS_TOKEN_EXPIRE_MINUTES, JWT_SECRET
 
 
 if not JWT_SECRET:
@@ -13,7 +13,7 @@ if len(JWT_SECRET.encode("utf-8")) < 32:
     )
 
 JWT_ALGORITHM = "HS256"
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 60
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = ACCESS_TOKEN_EXPIRE_MINUTES
 
 password_hasher = PasswordHasher()
 
@@ -36,6 +36,7 @@ def create_access_token(user_id: str) -> str:
     payload = {
         "sub": user_id,
         "exp": expires_at,
+        "type": "access",
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -45,6 +46,9 @@ def decode_access_token(token: str) -> str:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError as exc:
         raise ValueError("Invalid or expired token") from exc
+
+    if payload.get("type") != "access":
+        raise ValueError("Not an access token")
 
     user_id = payload.get("sub")
     if not user_id:

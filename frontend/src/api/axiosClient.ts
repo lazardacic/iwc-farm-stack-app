@@ -1,35 +1,20 @@
-import axios from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
+import toast from "react-hot-toast";
 
-const AUTH_TOKEN_KEY = "auth_token";
+import { API_URL } from "./authApi";
+import { useAuthStore } from "../store/authStore";
 
-type AuthErrorStatus = 401 | 403;
-
-let authErrorHandler: ((status: AuthErrorStatus) => void) | null = null;
+interface RetriableRequestConfig extends InternalAxiosRequestConfig {
+  _retried?: boolean;
+}
 
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000",
+  baseURL: API_URL,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
-
-export const getStoredAuthToken = () => {
-  return window.localStorage.getItem(AUTH_TOKEN_KEY);
-};
-
-export const setStoredAuthToken = (token: string) => {
-  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
-};
-
-export const clearStoredAuthToken = () => {
-  window.localStorage.removeItem(AUTH_TOKEN_KEY);
-};
-
-export const setAuthErrorHandler = (
-  handler: ((status: AuthErrorStatus) => void) | null,
-) => {
-  authErrorHandler = handler;
-};
 
 export const isAuthStatusError = (error: unknown) => {
   if (!axios.isAxiosError(error)) {
@@ -40,7 +25,7 @@ export const isAuthStatusError = (error: unknown) => {
 };
 
 axiosClient.interceptors.request.use((config) => {
-  const token = getStoredAuthToken();
+  const token = useAuthStore.getState().accessToken;
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -51,13 +36,32 @@ axiosClient.interceptors.request.use((config) => {
 
 axiosClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (axios.isAxiosError(error)) {
-      const status = error.response?.status;
+  async (error) => {
+    if (!axios.isAxiosError(error)) {
+      return Promise.reject(error);
+    }
 
-      if (status === 401 || status === 403) {
-        authErrorHandler?.(status);
+    const status = error.response?.status;
+    const request = error.config as RetriableRequestConfig | undefined;
+    const auth = useAuthStore.getState();
+
+    // An expired access token: get a new one once, then repeat the request.
+    // Anonymous requests have nothing to refresh and fail as they are.
+    if (status === 401 && request && !request._retried && auth.accessToken) {
+      request._retried = true;
+
+      try {
+        const token = await auth.refresh();
+        request.headers.Authorization = `Bearer ${token}`;
+        return axiosClient(request);
+      } catch {
+        useAuthStore.getState().expireSession();
+        return Promise.reject(error);
       }
+    }
+
+    if (status === 403) {
+      toast.error("You do not have permission to perform this action.");
     }
 
     return Promise.reject(error);

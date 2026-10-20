@@ -28,6 +28,7 @@ services:
       MONGODB_URL: mongodb://mongodb:27017
       DATABASE_NAME: ${DATABASE_NAME:-farm_db}
       CORS_ORIGINS: ${APP_URL:-http://localhost:8080}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       IMAGE_STORAGE: ${IMAGE_STORAGE:-local}
       API_PUBLIC_URL: ${APP_URL:-http://localhost:8080}/api
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}

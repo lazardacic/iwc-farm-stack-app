@@ -13,6 +13,7 @@ from config import MONGODB_URL
 from database.dependencies import (
     get_destination_collection,
     get_image_storage,
+    get_refresh_token_collection,
     get_upload_collection,
     get_user_collection,
 )
@@ -72,6 +73,17 @@ async def upload_collection(test_database):
 
 
 @pytest_asyncio.fixture
+async def refresh_token_collection(test_database):
+    collection = test_database["refresh_tokens"]
+
+    assert collection.database.name == TEST_DATABASE_NAME
+
+    yield collection
+
+    await collection.delete_many({})
+
+
+@pytest_asyncio.fixture
 async def image_storage():
     return FakeImageStorage()
 
@@ -81,6 +93,7 @@ async def test_app(
     destination_collection,
     user_collection,
     upload_collection,
+    refresh_token_collection,
     image_storage,
 ):
     def override_get_destination_collection():
@@ -97,6 +110,9 @@ async def test_app(
     ] = override_get_user_collection
     app.dependency_overrides[get_upload_collection] = lambda: upload_collection
     app.dependency_overrides[get_image_storage] = lambda: image_storage
+    app.dependency_overrides[get_refresh_token_collection] = (
+        lambda: refresh_token_collection
+    )
 
     yield app
 

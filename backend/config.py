@@ -33,3 +33,10 @@ CLOUDINARY_FOLDER = os.getenv("CLOUDINARY_FOLDER", "farm-destinations")
 ORPHAN_UPLOAD_MAX_AGE_HOURS = float(os.getenv("ORPHAN_UPLOAD_MAX_AGE_HOURS", "24"))
 # How often the cleanup runs; 0 disables it.
 UPLOAD_CLEANUP_INTERVAL_HOURS = float(os.getenv("UPLOAD_CLEANUP_INTERVAL_HOURS", "6"))
+
+# Short-lived access tokens are sent with every request; the long-lived refresh
+# token lives in an httpOnly cookie and only buys new access tokens.
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+# Set to true when the app is served over HTTPS so the cookie is never sent in clear text.
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").strip().lower() == "true"

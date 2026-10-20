@@ -5,7 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
 
-import AuthProvider from "./context/AuthProvider";
+import AuthSession from "./components/auth/AuthSession";
 import ThemeProvider from "./context/ThemeProvider";
 import QueryProvider from "./providers/QueryProvider";
 import { Toaster } from "react-hot-toast";
@@ -22,17 +22,15 @@ ReactDOM.createRoot(
 
     <QueryProvider>
 
-        <AuthProvider>
+        <AuthSession />
 
-          <ThemeProvider>
+        <ThemeProvider>
 
-            <App />
+          <App />
 
-            <Toaster position="top-right" />
+          <Toaster position="top-right" />
 
-          </ThemeProvider>
-
-        </AuthProvider>
+        </ThemeProvider>
 
     </QueryProvider>
 

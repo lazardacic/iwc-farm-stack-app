@@ -49,8 +49,16 @@ Functions:
 
 JWT settings:
 - algorithm: `HS256`
-- expiration: 60 minutes
+- expiration: 15 minutes (`ACCESS_TOKEN_EXPIRE_MINUTES`)
+- a `type: "access"` claim; tokens without it are rejected
 - secret: from environment variable `JWT_SECRET`
+
+Refresh tokens ([backend/services/refresh_tokens.py](./services/refresh_tokens.py)):
+- random 48-byte strings, stored only as SHA-256 hashes in `refresh_tokens`
+- valid 7 days (`REFRESH_TOKEN_EXPIRE_DAYS`); a TTL index deletes expired ones
+- rotated on every use; a family id groups one login's tokens
+- reuse of a rotated token revokes the family, except within a 10-second grace period for concurrent tabs
+- sent as an `httpOnly`, `SameSite=Lax` cookie on the `/auth` path (`Secure` when `COOKIE_SECURE=true`)
 
 Defined in:
 - [backend/security.py](./security.py)
@@ -106,13 +114,14 @@ The frontend now consumes the backend auth API and enforces the same access mode
 
 Implemented frontend behavior:
 - login page and register page
-- global auth state through a context provider
-- JWT token storage in `localStorage`
+- global auth state in a Zustand store ([frontend/src/store/authStore.ts](../frontend/src/store/authStore.ts))
+- access token kept in memory only; nothing is stored in `localStorage`
 - automatic `Authorization: Bearer <token>` header injection through Axios
 - protected frontend routes for create and edit pages
 - guest-only routes for login and register pages
-- session recovery through `GET /auth/me` on app startup
-- automatic logout and redirect on invalid or expired token
+- session recovery through `POST /auth/refresh` and `GET /auth/me` on app startup
+- silent token refresh and one retry when a request returns 401
+- sign-out and redirect to login when the refresh fails
 - admin-only delete controls in the UI
 
 Relevant frontend files:
@@ -213,13 +222,14 @@ Authorization: Bearer <admin-jwt>
 ## Frontend auth flow
 
 1. A user registers through `POST /auth/register` or logs in through `POST /auth/login`.
-2. The frontend stores the returned access token in `localStorage`.
-3. Axios automatically attaches the token to protected requests.
-4. On app startup, the frontend calls `GET /auth/me` to restore the current user.
+2. The backend returns an access token and sets the refresh cookie; the frontend keeps the access token in the Zustand store, in memory.
+3. Axios automatically attaches the access token to protected requests.
+4. On app startup, `AuthSession` calls `POST /auth/refresh` with the cookie, then `GET /auth/me`, to restore the current user.
 5. Protected frontend routes take an `allowedRoles` list: create and edit pages allow `admin` and `editor`, the users page allows `admin`, and the welcome page allows any signed-in user. Others are redirected to `/welcome`.
 6. The Edit button shows for admins and for the editor who created the destination; Delete shows only for admins. The backend enforces the same rules.
-7. If the backend returns `401`, the frontend clears the token, resets auth state, and redirects the user back to login.
+7. If the backend returns `401` for a signed-in user, the Axios interceptor calls `/auth/refresh` (one call shared by all failing requests) and retries the request once. If the refresh fails, the store marks the session expired and `AuthSession` shows a message and redirects to login.
 8. If the backend returns `403`, the frontend shows a forbidden message and keeps the current session.
+9. Logout calls `POST /auth/logout`, which revokes the session's refresh tokens and clears the cookie.
 
 ## Validation status
 The backend auth implementation has been validated with the real project test suite.
@@ -253,7 +263,6 @@ This implementation is intentionally minimal and aligned with the project’s ex
 - role checks are lightweight and explicit
 
 For a future production hardening pass, the next logical improvements would be:
-- refresh tokens
 - password reset flow
 - role-permission matrix
 - stricter secret management via `.env` or secret manager

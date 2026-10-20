@@ -56,12 +56,15 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - Complete CRUD lifecycle over a single `destinations` resource
 - REST API with automatic OpenAPI documentation at `/docs`
 - JWT-based authentication with register/login flow
+- Short-lived access tokens (15 min) kept in memory, renewed silently from a rotating refresh token in an `httpOnly` cookie (7 days)
+- Refresh token reuse detection and server-side logout that revokes the session
 - Current-user endpoint and role-based access control
 - Three roles: `admin`, `editor` and `subscriber`, enforced on the backend
 - Destination ownership: editors edit only what they created; only admins delete
-- Frontend login/register pages with persistent session state
+- Frontend login/register pages; the session survives reloads through the refresh cookie
 - Protected frontend routes for create and edit pages
-- Session-aware navigation and automatic logout on invalid or expired token
+- Session-aware navigation; requests that hit an expired access token are refreshed and retried once, and a failed refresh signs the user out
+- Auth state in a Zustand store that the Axios interceptor reads directly
 - Admin-only UI actions for destructive operations
 - Admin-only `/admin/users` page for managing user roles
 - Welcome page that shows each signed-in user their role and what it allows
@@ -201,7 +204,8 @@ src/
 │   ├── forms/      DestinationForm.tsx, AuthForm.tsx
 │   ├── destination/  DestinationCard.tsx, DestinationCardSkeleton.tsx, DestinationFilters.tsx
 │   └── layout/     Navbar, Footer, MainLayout, ThemeToggle
-├── context/        ThemeContext.tsx, AuthContext.tsx, AuthProvider.tsx
+├── context/        ThemeContext.tsx, ThemeProvider.tsx
+├── store/          authStore.ts (Zustand)
 ├── hooks/          useTheme.ts, useAuth.ts
 ├── pages/          Home, DestinationDetails, CreateDestination,
 │                   EditDestination, AdminUsers, Login, Register, NotFound
@@ -248,7 +252,13 @@ A destination saved with an empty `image` gets one of the bundled placeholders (
 | --- | --- | --- | --- |
 | `POST` | `/auth/register` | Register a new user | 201 |
 | `POST` | `/auth/login` | Authenticate and receive JWT | 200 |
+| `POST` | `/auth/refresh` | Exchange the refresh cookie for a new access token; rotates the cookie | 200 |
+| `POST` | `/auth/logout` | Revoke the session's refresh tokens and clear the cookie | 204 |
 | `GET` | `/auth/me` | Return current authenticated user | 200 |
+
+**Sessions.** Login returns a 15-minute access token in the body and sets a 7-day refresh token as an `httpOnly`, `SameSite=Lax` cookie scoped to `/auth` (`/api/auth` behind Nginx). The frontend keeps the access token in memory only; on load and whenever a request returns 401, it calls `/auth/refresh` once, even when several requests fail together.
+
+Refresh tokens are random strings stored only as SHA-256 hashes in the `refresh_tokens` collection, which MongoDB expires automatically. Each refresh rotates the token. Reusing a rotated token revokes the whole session, because it means the token was copied; a second use within 10 seconds is allowed, so two tabs refreshing at once do not sign the user out. Logout revokes only the current session, so other devices stay signed in.
 
 ### User management routes (admin only)
 
@@ -346,6 +356,9 @@ Backend settings are read from `backend/.env`; frontend settings are read from `
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Backend | Required only with `IMAGE_STORAGE=cloudinary`; the backend refuses to start if one is missing |
 | `ORPHAN_UPLOAD_MAX_AGE_HOURS` | Backend | `24`; uploads not used by any destination after this long are deleted |
 | `UPLOAD_CLEANUP_INTERVAL_HOURS` | Backend | `6`; how often that cleanup runs; `0` turns it off |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Backend | `15` |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Backend | `7` |
+| `COOKIE_SECURE` | Backend | `false`; set `true` when served over HTTPS |
 
 The API and frontend dev server still default to `http://localhost:8000` and `http://localhost:5173`, respectively. Vite exposes `VITE_*` values in the browser bundle, so do not put secrets in frontend env files.
 
@@ -403,7 +416,6 @@ FastAPI dependency overrides are used to make API tests use the test database in
 The current suite covers the main auth and CRUD paths, but there are still useful additions for broader production readiness:
 
 - tests for auth provider behavior and the create/edit/delete pages
-- refresh token flow and logout handling
 - password reset / email verification flows
 - MongoDB connection failure or unavailable database scenarios
 - broader edge-case coverage for partial updates, empty search results, and future endpoints
@@ -449,9 +461,9 @@ Stop with `docker compose -f docker-compose.prod.yml down`; add `-v` to also del
 
 | Limitation | Consequence |
 | --- | --- |
-| No refresh token flow | JWT sessions remain single-token and expire after one lifetime |
 | No password reset or email verification | Recovery and account lifecycle are still manual |
-| Auth token stored in `localStorage` | Simpler client integration, but not the strongest production security model |
+| Access tokens cannot be revoked | A stolen access token stays valid until it expires, at most 15 minutes |
+| `COOKIE_SECURE` is off by default | Over plain HTTP the refresh cookie can be read on the network; set it to `true` behind HTTPS |
 | Search uses unanchored regex | Text search still scans the collection; filters use indexes |
 | Image cleanup runs inside the API process | With several backend replicas, each would run its own cleanup |
 | No hosting target yet | The Docker stack runs on one machine; there is no cloud deployment or HTTPS |
@@ -460,10 +472,9 @@ Stop with `docker compose -f docker-compose.prod.yml down`; add `-v` to also del
 
 Ordered by value:
 
-1. **Refresh tokens and session management** — long-lived auth flow with token refresh and revocation support.
-2. **Broader frontend tests** — auth provider tests, form tests, and user interaction coverage.
-3. **More backend failure cases** — invalid ids, missing documents, malformed payloads, and unavailable MongoDB.
-4. **Hosting** — deploy the Docker stack to a server with HTTPS and push images from CI.
+1. **Reviews or favorites** — a second resource linked to users and destinations.
+2. **More backend failure cases** — invalid ids, missing documents, malformed payloads, and unavailable MongoDB.
+3. **Hosting** — deploy the Docker stack to a server with HTTPS and push images from CI.
 
 ## Documentation
 

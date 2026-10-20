@@ -16,9 +16,9 @@ const Navbar = () => {
   const [open, setOpen] = useState(false);
   const { isAuthenticated, isAdmin, canPublish, logout, user } = useAuth();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
     setOpen(false);
+    await logout();
     toast.success("Signed out successfully");
   };
 
