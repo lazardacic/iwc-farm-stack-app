@@ -21,6 +21,8 @@ Full CRUD over a REST API, with client and server side validation, cached server
 - [Data model](#data-model)
 - [Configuration](#configuration)
 - [Testing](#testing)
+- [Docker deployment](#docker-deployment)
+- [Continuous integration](#continuous-integration)
 - [Known limitations](#known-limitations)
 - [Roadmap](#roadmap)
 - [Documentation](#documentation)
@@ -123,7 +125,7 @@ venv\Scripts\activate
 # Linux / macOS
 source venv/bin/activate
 
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # app + test dependencies
 
 # Create backend/.env from the example (run from backend/)
 cp .env.example .env
@@ -180,6 +182,8 @@ New accounts start as `subscriber`. Accounts stored with the old `user` role are
 If the frontend loads but shows an error state, the backend is usually not running or the database container has stopped. Check with `docker ps`.
 
 If `pytest` is not available in your shell, run it through the virtual environment Python executable instead of the global interpreter.
+
+If `uvicorn main:app` reports `Could not import module "main"`, it was started outside `backend/`. Run it from `backend/`, where `main.py` lives.
 
 ## Project structure
 
@@ -399,6 +403,43 @@ The current suite covers the main auth and CRUD paths, but there are still usefu
 - MongoDB connection failure or unavailable database scenarios
 - broader edge-case coverage for partial updates, empty search results, and future endpoints
 
+## Docker deployment
+
+`docker-compose.prod.yml` runs the whole app in containers: MongoDB, the FastAPI backend and the built React app served by Nginx. The dev `docker-compose.yml` (MongoDB only) is unchanged.
+
+```bash
+cp .env.example .env        # set JWT_SECRET; generate one with the command in the file
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+App: `http://localhost:8080`. API docs: `http://localhost:8080/api/docs`.
+
+```
+Browser ──▶ Nginx :8080 ──┬─ /            built React app (SPA fallback to index.html)
+                          ├─ /placeholders bundled placeholder images
+                          └─ /api/*  ──▶  FastAPI :8000 ──▶ MongoDB :27017
+                                          └─ /media  uploaded images (local storage)
+```
+
+- The frontend calls the API on the same origin under `/api`, so the browser needs no CORS. Nginx strips the prefix; uvicorn runs with `--root-path /api` so redirects and `/docs` use the right path.
+- MongoDB is not published on a host port. Its data lives in the `mongo-data` volume, and local uploads in the `media` volume.
+- The backend runs as a non-root user and waits for a healthy MongoDB; Nginx waits for a healthy backend.
+- Nginx accepts request bodies up to 6 MB for image uploads and caches hashed `/assets` for a year.
+- To use Cloudinary, set `IMAGE_STORAGE=cloudinary` and the three `CLOUDINARY_*` keys in `.env`.
+- Seed data inside the stack: `docker compose -f docker-compose.prod.yml exec backend python seed.py` (and `seed_users.py`).
+
+Stop with `docker compose -f docker-compose.prod.yml down`; add `-v` to also delete the database and uploads.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and on every pull request:
+
+| Job | Steps |
+| --- | --- |
+| Backend tests | Python 3.14, `pip install -r requirements-dev.txt`, `pytest` against a MongoDB 8 service container |
+| Frontend | Node 24, `npm ci`, `npm run lint`, `npm run test`, `npm run build` |
+| Docker images | Builds the backend and frontend images, after both test jobs pass |
+
 ## Known limitations
 
 | Limitation | Consequence |
@@ -410,7 +451,7 @@ The current suite covers the main auth and CRUD paths, but there are still usefu
 | Search uses unanchored regex | Text search still scans the collection; filters use indexes |
 | Uploads that are never saved to a destination stay in storage | Orphaned files need a periodic cleanup job |
 | Uploaded images are not resized | Large photos are served at full size |
-| Local development only | No production build, reverse proxy, or deployment pipeline |
+| No hosting target yet | The Docker stack runs on one machine; there is no cloud deployment or HTTPS |
 
 ## Roadmap
 
@@ -419,7 +460,7 @@ Ordered by value:
 1. **Refresh tokens and session management** — long-lived auth flow with token refresh and revocation support.
 2. **Broader frontend tests** — auth provider tests, form tests, and user interaction coverage.
 3. **More backend failure cases** — invalid ids, missing documents, malformed payloads, and unavailable MongoDB.
-4. **Deployment** — production Compose setup, Nginx reverse proxy, CI/CD.
+4. **Hosting** — deploy the Docker stack to a server with HTTPS and push images from CI.
 
 ## Documentation
 

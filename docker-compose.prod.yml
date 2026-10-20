@@ -1,0 +1,56 @@
+# Production-like stack: MongoDB, FastAPI and the built frontend behind Nginx.
+#   cp .env.example .env   # then set JWT_SECRET
+#   docker compose -f docker-compose.prod.yml up --build -d
+# App: http://localhost:8080
+
+services:
+  mongodb:
+    image: mongo:8.0
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    # Nginx strips /api before proxying; root-path keeps FastAPI redirects and docs correct.
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000",
+              "--proxy-headers", "--forwarded-allow-ips", "*", "--root-path", "/api"]
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      MONGODB_URL: mongodb://mongodb:27017
+      DATABASE_NAME: ${DATABASE_NAME:-farm_db}
+      CORS_ORIGINS: ${APP_URL:-http://localhost:8080}
+      IMAGE_STORAGE: ${IMAGE_STORAGE:-local}
+      API_PUBLIC_URL: ${APP_URL:-http://localhost:8080}/api
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+    volumes:
+      - media:/app/media
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  mongo-data:
+  media:
