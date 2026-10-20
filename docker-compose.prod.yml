@@ -3,6 +3,9 @@
 #   docker compose -f docker-compose.prod.yml up --build -d
 # App: http://localhost:8080
 
+# A fixed project name keeps this stack apart from the development docker-compose.yml.
+name: iwc-farm-stack-app
+
 services:
   mongodb:
     # MongoDB 8.x cannot start on Linux kernels 6.19-7.0.13 (SERVER-121912), common on

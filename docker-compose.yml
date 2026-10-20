@@ -1,6 +1,16 @@
+# Development: only MongoDB runs in Docker; start the backend (uvicorn) and the
+# frontend (npm run dev) directly. The production-like stack is docker-compose.prod.yml.
+#   docker compose up -d
+# MongoDB: mongodb://localhost:27017
+
+# A fixed project name keeps this stack apart from docker-compose.prod.yml,
+# which lives in the same folder and also has a "mongodb" service.
+name: iwc-farm-app
+
 services:
   mongodb:
-    image: mongo:latest
+    # Same version as the Docker stack and CI (MongoDB 8.x fails on Linux kernels 6.19+).
+    image: mongo:7.0
     container_name: iwc_farm_mongodb
     ports:
       - "27017:27017"

@@ -98,7 +98,19 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - Node.js and npm
 - Docker and Docker Compose
 
-Three processes run at the same time: the MongoDB container, the FastAPI backend, and the Vite dev server.
+There are two ways to run the app. Both use MongoDB 7.0, the same version as CI.
+
+| | Development (below) | Docker stack ([Docker deployment](#docker-deployment)) |
+| --- | --- | --- |
+| Compose file | `docker-compose.yml`, MongoDB only | `docker-compose.prod.yml`, everything |
+| Backend and frontend | `uvicorn` and `npm run dev`, with live reload | containers, rebuilt with `up --build` |
+| App | `http://localhost:5173`, API on `:8000` | `http://localhost:8080`, API under `/api` |
+| MongoDB | container `iwc_farm_mongodb` on `localhost:27017` | inside Docker only, no host port |
+| Data | volume `iwc-farm-app_iwc_mongo_data` | volume `iwc-farm-stack-app_mongo-data` |
+
+The two databases are separate: changes in one do not appear in the other. Both can run at the same time. Each compose file sets its own project name (`iwc-farm-app` and `iwc-farm-stack-app`), so their `mongodb` services never collide.
+
+In development, three processes run at the same time: the MongoDB container, the FastAPI backend, and the Vite dev server.
 
 ### 1. Clone the repository
 
@@ -109,21 +121,24 @@ cd iwc-farm-stack-app
 
 ### 2. Start the database
 
-`docker-compose.yml`:
-
-```yaml
-services:
-  mongodb:
-    image: mongo:latest
-    ports:
-      - "27017:27017"
-```
+`docker-compose.yml` runs only MongoDB 7.0, in a container named `iwc_farm_mongodb`:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-MongoDB is now reachable at `mongodb://localhost:27017`.
+MongoDB is now reachable at `mongodb://localhost:27017`. Stop it with `docker compose stop`; the data stays in the `iwc-farm-app_iwc_mongo_data` volume.
+
+To copy the Docker stack's data into the development database (this replaces the development data):
+
+```bash
+docker exec iwc-farm-stack-app-mongodb-1 mongodump --db farm_db --archive=/tmp/farm_db.archive
+docker cp iwc-farm-stack-app-mongodb-1:/tmp/farm_db.archive farm_db.archive
+docker cp farm_db.archive iwc_farm_mongodb:/tmp/farm_db.archive
+docker exec iwc_farm_mongodb mongorestore --drop --archive=/tmp/farm_db.archive
+```
+
+Swap the container names to copy in the other direction. In Git Bash on Windows, prefix the `docker exec` lines with `MSYS_NO_PATHCONV=1` so `/tmp/...` is not rewritten to a Windows path.
 
 ### 3. Start the backend
 
