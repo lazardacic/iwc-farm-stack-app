@@ -2,11 +2,17 @@ import { Link } from "react-router-dom";
 
 import Logo from "./Logo";
 
+import { useAuth } from "../../hooks/useAuth";
+
 import { FaGithub, FaReact } from "react-icons/fa";
 
 import { SiFastapi, SiMongodb, SiTailwindcss } from "react-icons/si";
 
+const REPOSITORY_URL = "https://github.com/lazardacic/iwc-farm-stack-app";
+
 const Footer = () => {
+  const { canPublish } = useAuth();
+
   return (
     <footer
       className="
@@ -95,19 +101,21 @@ const Footer = () => {
               </Link>
             </li>
 
-            <li>
-              <Link
-                to="/create"
-                className="
-                  text-slate-600
-                  hover:text-blue-600
+            {canPublish && (
+              <li>
+                <Link
+                  to="/create"
+                  className="
+                    text-slate-600
+                    hover:text-blue-600
 
-                  dark:text-slate-400
-                "
-              >
-                Create Destination
-              </Link>
-            </li>
+                    dark:text-slate-400
+                  "
+                >
+                  Create Destination
+                </Link>
+              </li>
+            )}
           </ul>
         </div>
 
@@ -249,7 +257,9 @@ const Footer = () => {
           </h3>
 
           <a
-            href="#"
+            href={REPOSITORY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="
               flex
               items-center
