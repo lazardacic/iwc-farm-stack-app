@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from database.connection import create_mongo_client, get_database
 from models.destination import MAX_PINNED_DESTINATIONS
 from services.destination_images import random_placeholder
+from utils.slug import slugify
 
 
 # Seeded destinations belong to this user when it exists (run seed_users.py first),
@@ -68,6 +69,7 @@ for index in range(99):
 
     destination = {
         "title": f"{city} Trip #{index + 1}",
+        "slug": slugify(f"{city} Trip #{index + 1}"),
         "country": country,
         "description": random.choice(descriptions),
         "price": random.randint(500, 5000),

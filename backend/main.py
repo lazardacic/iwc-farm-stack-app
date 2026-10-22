@@ -22,7 +22,7 @@ from routes.images import router as image_router
 from routes.users import router as user_router
 from services.destination_images import cleanup_orphaned_uploads
 from services.destination_service import ensure_destination_indexes
-from services.image_storage import create_image_storage
+from services.image_storage import create_image_storages
 from services.refresh_tokens import ensure_refresh_token_indexes
 from services.user_service import migrate_legacy_roles
 
@@ -34,14 +34,21 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s - %(
 logger = logging.getLogger(__name__)
 
 
+# The first run comes soon after startup, so frequent restarts (such as
+# uvicorn --reload in development) do not keep postponing it.
+FIRST_CLEANUP_DELAY_SECONDS = 300
+
+
 async def clean_up_uploads_periodically(app: FastAPI):
     database = app.state.database
+    delay = min(FIRST_CLEANUP_DELAY_SECONDS, UPLOAD_CLEANUP_INTERVAL_HOURS * 3600)
 
     while True:
-        await asyncio.sleep(UPLOAD_CLEANUP_INTERVAL_HOURS * 3600)
+        await asyncio.sleep(delay)
+        delay = UPLOAD_CLEANUP_INTERVAL_HOURS * 3600
         try:
             removed = await cleanup_orphaned_uploads(
-                app.state.image_storage,
+                app.state.image_storages,
                 database["uploads"],
                 database["destinations"],
                 timedelta(hours=ORPHAN_UPLOAD_MAX_AGE_HOURS),
@@ -59,7 +66,7 @@ async def lifespan(app: FastAPI):
 
     app.state.mongo_client = client
     app.state.database = get_database(client)
-    app.state.image_storage = create_image_storage()
+    app.state.image_storages = create_image_storages()
 
     await ensure_destination_indexes(app.state.database["destinations"])
     await migrate_legacy_roles(app.state.database["users"])

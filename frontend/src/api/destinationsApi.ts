@@ -3,8 +3,10 @@ import type {
   Destination,
   DestinationFilters,
   DestinationPage,
+  DestinationPayload,
   DestinationSort,
 } from "../types/destination";
+import { isObjectId } from "../utils/destinationLinks";
 
 interface DestinationPageParams {
   page: number;
@@ -99,9 +101,20 @@ export const getDestination = async (id: string): Promise<Destination> => {
   return response.data;
 };
 
+export const getDestinationBySlug = async (slug: string): Promise<Destination> => {
+  const response = await axiosClient.get(
+    `/destinations/by-slug/${encodeURIComponent(slug)}`,
+  );
+  return response.data;
+};
+
+// /destination/:key accepts a slug, or an id from links made before slugs existed.
+export const getDestinationByKey = (key: string): Promise<Destination> =>
+  isObjectId(key) ? getDestination(key) : getDestinationBySlug(key);
+
 export const createDestination = async (
-  destination: Omit<Destination, "id">,
-) => {
+  destination: DestinationPayload,
+): Promise<Destination> => {
   const response = await axiosClient.post("/destinations/", destination);
 
   return response.data;
@@ -109,8 +122,8 @@ export const createDestination = async (
 
 export const updateDestination = async (
   id: string,
-  destination: Omit<Destination, "id">,
-) => {
+  destination: DestinationPayload,
+): Promise<Destination> => {
   const response = await axiosClient.put(`/destinations/${id}`, destination);
 
   return response.data;

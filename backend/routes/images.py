@@ -61,6 +61,6 @@ async def upload_image(
         ) from exc
 
     stored = await storage.save(optimized, "webp")
-    await record_upload(uploads, stored, current_user.id)
+    await record_upload(uploads, stored, current_user.id, storage.name)
 
     return {"url": stored.url}

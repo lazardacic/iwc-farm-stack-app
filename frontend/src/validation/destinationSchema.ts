@@ -25,6 +25,9 @@ export const destinationSchema = z.object({
     })
     .positive("Price must be greater than 0"),
 
+  // Normalized by the server (lowercase, hyphens, unique); empty rebuilds it from the title.
+  slug: z.string().max(200, "Slug must be 200 characters or fewer").optional(),
+
   rating: z
     .number({
       message: "Rating must be a number",

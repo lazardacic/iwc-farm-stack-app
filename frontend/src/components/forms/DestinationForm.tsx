@@ -65,6 +65,22 @@ const DestinationForm = ({
         {...register("title")}
       />
 
+      {mode === "edit" && (
+        <div>
+          <Input
+            label="Slug"
+            placeholder="belgrade-at-sunset"
+            error={errors.slug?.message}
+            {...register("slug")}
+          />
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            The link is <code>/destination/&lt;slug&gt;</code>. A new title does not change it.
+            Clear the field to rebuild it from the title; it is saved in lowercase with
+            hyphens, and a number is added if another destination uses it.
+          </p>
+        </div>
+      )}
+
       <Input
         label="Country"
         placeholder="Enter country"

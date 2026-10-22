@@ -13,11 +13,13 @@ from config import MONGODB_URL
 from database.dependencies import (
     get_destination_collection,
     get_image_storage,
+    get_image_storages,
     get_refresh_token_collection,
     get_upload_collection,
     get_user_collection,
 )
 from main import app
+from services.image_storage import ImageStorages
 from tests.fakes import FakeImageStorage
 
 
@@ -110,6 +112,7 @@ async def test_app(
     ] = override_get_user_collection
     app.dependency_overrides[get_upload_collection] = lambda: upload_collection
     app.dependency_overrides[get_image_storage] = lambda: image_storage
+    app.dependency_overrides[get_image_storages] = lambda: ImageStorages(image_storage)
     app.dependency_overrides[get_refresh_token_collection] = (
         lambda: refresh_token_collection
     )

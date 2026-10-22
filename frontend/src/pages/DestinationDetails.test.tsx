@@ -5,10 +5,11 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { vi } from "vitest";
 
 import DestinationDetails from "./DestinationDetails";
+import LocationProbe from "../test/LocationProbe";
 import type { AuthUser } from "../types/auth";
 import type { Destination } from "../types/destination";
 
-const getDestinationMock = vi.fn();
+const getDestinationByKeyMock = vi.fn();
 const setDestinationFeaturedMock = vi.fn();
 const setDestinationPinnedMock = vi.fn();
 const useAuthMock = vi.fn();
@@ -16,7 +17,7 @@ const toastSuccessMock = vi.fn();
 const toastErrorMock = vi.fn();
 
 vi.mock("../api/destinationsApi", () => ({
-  getDestination: (id: string) => getDestinationMock(id),
+  getDestinationByKey: (key: string) => getDestinationByKeyMock(key),
   setDestinationFeatured: (id: string, featured: boolean) =>
     setDestinationFeaturedMock(id, featured),
   setDestinationPinned: (id: string, pinned: boolean) => setDestinationPinnedMock(id, pinned),
@@ -35,8 +36,9 @@ vi.mock("react-hot-toast", () => ({
 }));
 
 const destination: Destination = {
-  id: "d1",
+  id: "6a5f8ddbbfc8ad6679852eca",
   title: "Kyoto in Autumn",
+  slug: "kyoto-in-autumn",
   country: "Japan",
   description: "Temples and red maples.\n\nQuiet gardens in the morning.",
   price: 2100,
@@ -56,13 +58,14 @@ const signedInAs = (user: AuthUser | null) => {
   });
 };
 
-const renderDetails = () =>
+const renderDetails = (route = "/destination/kyoto-in-autumn") =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={["/destination/d1"]}>
+      <MemoryRouter initialEntries={[route]}>
         <Routes>
-          <Route path="/destination/:id" element={<DestinationDetails />} />
+          <Route path="/destination/:key" element={<DestinationDetails />} />
         </Routes>
+        <LocationProbe />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -70,7 +73,7 @@ const renderDetails = () =>
 describe("DestinationDetails", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    getDestinationMock.mockResolvedValue(destination);
+    getDestinationByKeyMock.mockResolvedValue(destination);
   });
 
   it("reads like an article: title, meta, paragraphs and tags", async () => {
@@ -114,14 +117,14 @@ describe("DestinationDetails", () => {
     signedInAs({ id: "admin-1", email: "admin@example.com", role: "admin" });
     setDestinationFeaturedMock.mockResolvedValue({ ...destination, featured: true });
     // After the change, a refetch returns the stored, featured version.
-    getDestinationMock
+    getDestinationByKeyMock
       .mockResolvedValueOnce(destination)
       .mockResolvedValue({ ...destination, featured: true });
 
     renderDetails();
     fireEvent.click(await screen.findByRole("button", { name: /Mark as featured/ }));
 
-    await waitFor(() => expect(setDestinationFeaturedMock).toHaveBeenCalledWith("d1", true));
+    await waitFor(() => expect(setDestinationFeaturedMock).toHaveBeenCalledWith("6a5f8ddbbfc8ad6679852eca", true));
     expect(await screen.findByRole("button", { name: /Remove featured mark/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Pin to home slider/ })).toBeInTheDocument();
     expect(setDestinationPinnedMock).not.toHaveBeenCalled();
@@ -131,14 +134,14 @@ describe("DestinationDetails", () => {
   it("lets an admin pin the destination to the home slider", async () => {
     signedInAs({ id: "admin-1", email: "admin@example.com", role: "admin" });
     setDestinationPinnedMock.mockResolvedValue({ ...destination, pinned: true });
-    getDestinationMock
+    getDestinationByKeyMock
       .mockResolvedValueOnce(destination)
       .mockResolvedValue({ ...destination, pinned: true });
 
     renderDetails();
     fireEvent.click(await screen.findByRole("button", { name: /Pin to home slider/ }));
 
-    await waitFor(() => expect(setDestinationPinnedMock).toHaveBeenCalledWith("d1", true));
+    await waitFor(() => expect(setDestinationPinnedMock).toHaveBeenCalledWith("6a5f8ddbbfc8ad6679852eca", true));
     expect(await screen.findByRole("button", { name: /Unpin from home slider/ })).toBeInTheDocument();
     expect(screen.getByText("Pinned")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Mark as featured/ })).toBeInTheDocument();
@@ -171,7 +174,7 @@ describe("DestinationDetails", () => {
 
   it("does not show the pinned label to visitors", async () => {
     signedInAs(null);
-    getDestinationMock.mockResolvedValue({ ...destination, pinned: true });
+    getDestinationByKeyMock.mockResolvedValue({ ...destination, pinned: true });
 
     renderDetails();
 
@@ -179,9 +182,21 @@ describe("DestinationDetails", () => {
     expect(screen.queryByText("Pinned")).not.toBeInTheDocument();
   });
 
+  it("loads by slug and replaces an old id link with the slug", async () => {
+    signedInAs(null);
+
+    renderDetails("/destination/6a5f8ddbbfc8ad6679852eca");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent("/destination/kyoto-in-autumn"),
+    );
+    expect(getDestinationByKeyMock).toHaveBeenCalledWith("6a5f8ddbbfc8ad6679852eca");
+    expect(getDestinationByKeyMock).toHaveBeenCalledWith("kyoto-in-autumn");
+  });
+
   it("shows a not found state", async () => {
     signedInAs(null);
-    getDestinationMock.mockRejectedValue(new Error("404"));
+    getDestinationByKeyMock.mockRejectedValue(new Error("404"));
 
     renderDetails();
 

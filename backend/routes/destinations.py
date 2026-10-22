@@ -1,11 +1,12 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pymongo.errors import DuplicateKeyError
 from motor.motor_asyncio import AsyncIOMotorCollection
 
 from database.dependencies import (
     get_destination_collection,
-    get_image_storage,
+    get_image_storages,
     get_upload_collection,
 )
 from models.destination import (
@@ -33,12 +34,14 @@ from services.destination_service import (
     set_destination_pinned,
     get_destination_countries,
     get_destination,
+    get_destination_by_slug,
     get_destination_document,
+    unique_slug,
     create_destination,
     update_destination,
     delete_destination,
 )
-from services.image_storage import ImageStorage
+from services.image_storage import ImageStorages
 
 
 router = APIRouter(
@@ -57,7 +60,7 @@ UploadCollection = Annotated[
     Depends(get_upload_collection),
 ]
 
-Storage = Annotated[ImageStorage, Depends(get_image_storage)]
+Storages = Annotated[ImageStorages, Depends(get_image_storages)]
 
 
 @router.get("/", response_model=DestinationPage)
@@ -129,6 +132,22 @@ async def fetch_destination_countries(
     return await get_destination_countries(collection)
 
 
+@router.get("/by-slug/{slug}")
+async def fetch_destination_by_slug(
+    slug: str,
+    collection: DestinationCollection,
+):
+    destination = await get_destination_by_slug(collection, slug)
+
+    if not destination:
+        raise HTTPException(
+            status_code=404,
+            detail="Destination not found",
+        )
+
+    return destination
+
+
 @router.get("/{id}")
 async def fetch_destination(
     id: str,
@@ -197,7 +216,7 @@ async def edit_destination(
     destination: DestinationCreate,
     collection: DestinationCollection,
     uploads: UploadCollection,
-    storage: Storage,
+    storages: Storages,
     current_user: PublisherUser,
 ):
     try:
@@ -223,6 +242,18 @@ async def edit_destination(
     data = destination.model_dump()
     # Featured is admin-only, so edits keep the stored value; pinned is never in the body.
     data["featured"] = existing.get("featured", False)
+
+    # Like WordPress: a new title does not change the link. The slug changes only
+    # when the editor edits it, or clears it to rebuild it from the title.
+    requested_slug = data.pop("slug")
+    if requested_slug is None:
+        data["slug"] = existing.get("slug") or await unique_slug(
+            collection, data["title"], existing["_id"]
+        )
+    else:
+        data["slug"] = await unique_slug(
+            collection, requested_slug or data["title"], existing["_id"]
+        )
     previous_public_id = existing.get("image_public_id")
 
     if data["image"] and data["image"] == existing.get("image"):
@@ -238,6 +269,11 @@ async def edit_destination(
             id,
             data,
         )
+    except DuplicateKeyError:
+        raise HTTPException(
+            status_code=409,
+            detail="That link is already used by another destination",
+        )
     except ValueError:
         raise HTTPException(
             status_code=400,
@@ -251,7 +287,7 @@ async def edit_destination(
         )
 
     if previous_public_id != data["image_public_id"]:
-        await release_image(storage, uploads, collection, previous_public_id)
+        await release_image(storages, uploads, collection, previous_public_id)
 
     return updated
 
@@ -261,7 +297,7 @@ async def remove_destination(
     id: str,
     collection: DestinationCollection,
     uploads: UploadCollection,
-    storage: Storage,
+    storages: Storages,
     current_user: AdminUser,
 ):
     try:
@@ -283,7 +319,7 @@ async def remove_destination(
         )
 
     await release_image(
-        storage, uploads, collection, existing and existing.get("image_public_id")
+        storages, uploads, collection, existing and existing.get("image_public_id")
     )
 
     return deleted

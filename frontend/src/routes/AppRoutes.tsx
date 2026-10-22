@@ -22,7 +22,7 @@ const AppRoutes = () => {
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
 
-        <Route path="/destination/:id" element={<DestinationDetails />} />
+        <Route path="/destination/:key" element={<DestinationDetails />} />
 
         <Route element={<GuestRoute />}>
           <Route path="/login" element={<Login />} />

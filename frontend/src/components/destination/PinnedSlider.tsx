@@ -10,6 +10,7 @@ import {
 } from "react-icons/fi";
 
 import { getPinnedDestinations } from "../../api/destinationsApi";
+import { destinationPath } from "../../utils/destinationLinks";
 import { formatPrice, formatRating } from "../../utils/formatters";
 
 import DestinationImage from "./DestinationImage";
@@ -138,7 +139,7 @@ const PinnedSlider = () => {
               </p>
 
               <Link
-                to={`/destination/${destination.id}`}
+                to={destinationPath(destination)}
                 className="mt-6 flex w-fit items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
               >
                 Explore destination

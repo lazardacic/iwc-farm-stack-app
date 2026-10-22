@@ -14,6 +14,7 @@ vi.mock("../../api/destinationsApi", () => ({
 const makeDestination = (id: string, title: string, featured = false): Destination => ({
   id,
   title,
+  slug: title.toLowerCase().replace(/ /g, "-"),
   country: "Japan",
   description: "A featured destination.",
   price: 1450,
@@ -56,7 +57,7 @@ describe("PinnedSlider", () => {
     expect(screen.getAllByText("4.8")).toHaveLength(2);
     expect(
       screen.getAllByRole("link", { name: /Explore destination/ }).at(0),
-    ).toHaveAttribute("href", "/destination/1");
+    ).toHaveAttribute("href", "/destination/kyoto-temples");
     expect(screen.getByRole("group", { name: "1 of 2" })).toBeInTheDocument();
   });
 

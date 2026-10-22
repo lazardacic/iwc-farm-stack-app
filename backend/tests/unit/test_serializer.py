@@ -26,6 +26,7 @@ def test_destination_serializer():
     assert result == {
         "id": str(destination_id),
         "title": "Paris",
+        "slug": "",
         "country": "France",
         "description": "A beautiful city",
         "price": 500,
@@ -58,6 +59,7 @@ def test_destination_serializer_with_empty_values():
     assert result == {
         "id": str(destination_id),
         "title": "",
+        "slug": "",
         "country": "",
         "description": "",
         "price": 0,

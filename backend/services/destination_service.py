@@ -4,8 +4,10 @@ from datetime import datetime, timezone
 
 from bson import ObjectId
 from bson.errors import InvalidId
+from pymongo.errors import DuplicateKeyError
 
 from models.destination import DestinationFilters, DestinationSort
+from utils.slug import slugify
 
 
 def _parse_object_id(id: str) -> ObjectId:
@@ -19,6 +21,7 @@ def destination_serializer(destination) -> dict:
     return {
         "id": str(destination["_id"]),
         "title": destination["title"],
+        "slug": destination.get("slug", ""),
         "country": destination["country"],
         "description": destination["description"],
         "price": destination["price"],
@@ -161,7 +164,44 @@ async def get_destination_countries(collection) -> list[str]:
     return sorted(country for country in countries if country)
 
 
+async def unique_slug(collection, wanted: str, exclude_id: ObjectId | None = None) -> str:
+    """Slugify `wanted` and add -2, -3... when another destination already uses it."""
+    base = slugify(wanted)
+    query = {"slug": {"$regex": f"^{re.escape(base)}(-[0-9]+)?$"}}
+    if exclude_id is not None:
+        query["_id"] = {"$ne": exclude_id}
+
+    taken = {doc["slug"] async for doc in collection.find(query, {"slug": 1})}
+    if base not in taken:
+        return base
+
+    number = 2
+    while f"{base}-{number}" in taken:
+        number += 1
+    return f"{base}-{number}"
+
+
+async def backfill_destination_slugs(collection) -> int:
+    """Give every destination without a slug one made from its title, oldest first."""
+    filled = 0
+    async for destination in collection.find(
+        {"$or": [{"slug": {"$exists": False}}, {"slug": ""}, {"slug": None}]},
+        {"title": 1},
+    ).sort("_id", 1):
+        slug = await unique_slug(collection, destination["title"], destination["_id"])
+        await collection.update_one({"_id": destination["_id"]}, {"$set": {"slug": slug}})
+        filled += 1
+    return filled
+
+
 async def ensure_destination_indexes(collection):
+    # Slugs are filled first, so the unique index can be built on existing data.
+    await backfill_destination_slugs(collection)
+    await collection.create_index(
+        "slug",
+        unique=True,
+        partialFilterExpression={"slug": {"$type": "string"}},
+    )
     await collection.create_index("country")
     await collection.create_index("price")
     await collection.create_index("rating")
@@ -174,6 +214,11 @@ async def get_destination_document(collection, id: str):
     object_id = _parse_object_id(id)
 
     return await collection.find_one({"_id": object_id})
+
+
+async def get_destination_by_slug(collection, slug: str):
+    destination = await collection.find_one({"slug": slug})
+    return destination_serializer(destination) if destination else None
 
 
 async def get_destination(collection, id: str):
@@ -190,7 +235,19 @@ async def get_destination(collection, id: str):
 
 
 async def create_destination(collection, data: dict):
-    result = await collection.insert_one(data)
+    wanted = data.pop("slug", None) or data["title"]
+
+    # Two destinations created at the same moment can pick the same slug;
+    # the unique index rejects the second, which then picks the next number.
+    for _ in range(5):
+        data["slug"] = await unique_slug(collection, wanted)
+        try:
+            result = await collection.insert_one(data)
+            break
+        except DuplicateKeyError:
+            data.pop("_id", None)
+    else:
+        raise RuntimeError("Could not find a free slug")
 
     new_destination = await collection.find_one(
         {"_id": result.inserted_id}

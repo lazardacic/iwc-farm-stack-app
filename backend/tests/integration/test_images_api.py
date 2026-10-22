@@ -111,6 +111,7 @@ async def test_editor_uploads_supported_images_as_webp(
     assert url.endswith(".webp")
     record = await upload_collection.find_one({"url": url})
     assert record["uploaded_by"] == editor_id
+    assert record["storage"] == "fake"
     stored = decode(image_storage.files[record["public_id"]])
     assert stored.format == "WEBP"
     assert stored.size == (64, 48)

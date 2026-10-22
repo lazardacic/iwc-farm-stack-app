@@ -18,6 +18,7 @@ Full CRUD over a REST API, with client and server side validation, cached server
 - [Getting started](#getting-started)
 - [Project structure](#project-structure)
 - [API reference](#api-reference)
+- [Destination links](#destination-links)
 - [Data model](#data-model)
 - [Configuration](#configuration)
 - [Testing](#testing)
@@ -82,6 +83,7 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - Two independent admin statuses: **featured** (a badge and a filter, no limit) and **pinned** (the slider at the top of the home page, at most 5)
 - Home page slider of pinned destinations, with arrows, dots and swipe, and no autoplay
 - "My destinations" page for editors and admins, listing only what they published
+- Readable destination links such as `/destination/belgrade-at-sunset`, made from the title (Serbian Latin and Cyrillic letters are transliterated); old id links still work
 - Destination pages laid out like a blog post: large image, readable text column and a trip details panel
 - Inter and Plus Jakarta Sans fonts, bundled with the app
 - Admin user management: list and search users, change roles (admin-only on the backend)
@@ -264,7 +266,8 @@ Public files in `frontend/public/` include `placeholders/`, six grayscale SVGs a
 | `GET` | `/destinations/pinned` | Up to 5 pinned destinations for the home slider, most recently pinned first | 200 |
 | `PATCH` | `/destinations/{id}/featured` | Mark or unmark as featured (`{"featured": true}`); admin only; no limit | 200 |
 | `PATCH` | `/destinations/{id}/pinned` | Pin or unpin (`{"pinned": true}`); admin only; 409 when 5 are already pinned | 200 |
-| `GET` | `/destinations/{id}` | Get one destination | 200 |
+| `GET` | `/destinations/{id}` | Get one destination by id | 200 |
+| `GET` | `/destinations/by-slug/{slug}` | Get one destination by its slug | 200 |
 | `POST` | `/destinations` | Create a destination (admin, editor) | 200 |
 | `PUT` | `/destinations/{id}` | Update a destination (admin, or the editor who created it) | 200 |
 | `DELETE` | `/destinations/{id}` | Delete a destination (admin) | 200 |
@@ -275,7 +278,7 @@ Public files in `frontend/public/` include `placeholders/`, six grayscale SVGs a
 | --- | --- | --- | --- |
 | `POST` | `/images` | Upload one image as multipart field `file` (admin, editor); returns `{"url": "..."}` | 201 |
 
-The backend checks the file content, not its name or declared type: JPEG, PNG and WebP up to 5 MB are accepted (otherwise 415, 413, or 400 for an empty file). Accepted images are decoded with Pillow, rotated according to their EXIF orientation, resized to at most 1600 px on the longest side, and saved as WebP without metadata. A file that cannot be decoded, or has more than 40 million pixels, returns 400. Each upload is recorded with its uploader. A destination may use an uploaded image only if the same user uploaded it, or the user is an admin (otherwise 403). When a destination's image is replaced or removed, or the destination is deleted, the old upload is deleted unless another destination still uses it.
+The backend checks the file content, not its name or declared type: JPEG, PNG and WebP up to 5 MB are accepted (otherwise 415, 413, or 400 for an empty file). Accepted images are decoded with Pillow, rotated according to their EXIF orientation, resized to at most 1600 px on the longest side, and saved as WebP without metadata. A file that cannot be decoded, or has more than 40 million pixels, returns 400. Each upload is recorded with its uploader. A destination may use an uploaded image only if the same user uploaded it, or the user is an admin (otherwise 403). Each upload records which storage holds it (`local` or `cloudinary`), so after switching `IMAGE_STORAGE` older files are still deleted from where they live. When a destination's image is replaced or removed, or the destination is deleted, the old upload is deleted unless another destination still uses it.
 
 A destination saved with an empty `image` gets one of the bundled placeholders (`/placeholders/*.svg`, served by the frontend). Image values must be an `http(s)` URL or a relative path; `javascript:`, `data:` and other schemes return 422.
 
@@ -340,6 +343,17 @@ Invalid filter or sort values return 422. Every sort uses `_id` as a tiebreaker,
 }
 ```
 
+## Destination links
+
+Each destination has a unique `slug`, and the frontend links to `/destination/<slug>`. The rules follow WordPress, without redirects:
+
+- On create, the slug is made from the title: lowercase ASCII words joined by hyphens, at most 80 characters. Serbian letters are transliterated (`č ć š ž đ` become `c c s z dj`, Cyrillic becomes Latin).
+- If the slug is taken, a number is added: `belgrade-at-sunset`, `belgrade-at-sunset-2`, `belgrade-at-sunset-3`.
+- Changing the title does not change the slug, so shared links keep working. Editors can change it in the Slug field of the edit form, or clear the field to rebuild it from the title.
+- In the API, an update without `slug` keeps the current one, `""` rebuilds it from the title, and any other value is normalized and made unique.
+- On startup, destinations without a slug get one, oldest first, and a unique index is created.
+- Links that use the old MongoDB id still open the destination, and the address bar switches to the slug.
+
 ## Data model
 
 A destination is one self contained document. No joins, no transformation layer between the database and the API response.
@@ -371,6 +385,7 @@ A destination is one self contained document. No joins, no transformation layer 
 | `rating` | number (0 to 5) | yes |
 | `featured` | boolean | a badge and filter, independent of `pinned`; changed only through `PATCH /destinations/{id}/featured`; create and update ignore it |
 | `tags` | string[] | no |
+| `slug` | string, unique | made from the title on create; see [Destination links](#destination-links) |
 | `created_by` | string (user id) | set by the backend on create |
 | `pinned` | boolean | shown in the home slider; changed only through `PATCH /destinations/{id}/pinned` |
 | `pinned_at` | datetime | set when the destination is pinned; orders the slider |
@@ -391,7 +406,7 @@ Backend settings are read from `backend/.env`; frontend settings are read from `
 | `API_PUBLIC_URL` | Backend | `http://localhost:8000`; base for links to locally stored images |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Backend | Required only with `IMAGE_STORAGE=cloudinary`; the backend refuses to start if one is missing |
 | `ORPHAN_UPLOAD_MAX_AGE_HOURS` | Backend | `24`; uploads not used by any destination after this long are deleted |
-| `UPLOAD_CLEANUP_INTERVAL_HOURS` | Backend | `6`; how often that cleanup runs; `0` turns it off |
+| `UPLOAD_CLEANUP_INTERVAL_HOURS` | Backend | `6`; how often that cleanup runs (the first run is 5 minutes after startup); `0` turns it off |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Backend | `15` |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | Backend | `7` |
 | `COOKIE_SECURE` | Backend | `false`; set `true` when served over HTTPS |

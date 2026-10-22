@@ -7,6 +7,7 @@ import type { Destination } from "../../types/destination";
 const destination: Destination = {
   id: "abc",
   title: "Santorini Sunsets",
+  slug: "santorini-sunsets",
   country: "Greece",
   description: "White houses above the Aegean Sea.",
   price: 2399,
@@ -24,8 +25,17 @@ const renderCard = (overrides: Partial<Destination> = {}) =>
   );
 
 describe("DestinationCard", () => {
-  it("links the whole card to the destination", () => {
+  it("links the whole card to the destination's slug", () => {
     renderCard();
+
+    expect(screen.getByRole("link")).toHaveAttribute(
+      "href",
+      "/destination/santorini-sunsets",
+    );
+  });
+
+  it("falls back to the id when a destination has no slug yet", () => {
+    renderCard({ slug: "" });
 
     expect(screen.getByRole("link")).toHaveAttribute("href", "/destination/abc");
   });

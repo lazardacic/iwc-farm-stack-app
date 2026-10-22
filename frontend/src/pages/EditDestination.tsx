@@ -7,6 +7,7 @@ import DestinationForm from "../components/forms/DestinationForm";
 import { isAuthStatusError } from "../api/axiosClient";
 import { getDestination, updateDestination } from "../api/destinationsApi";
 import { useAuth } from "../hooks/useAuth";
+import { destinationPath } from "../utils/destinationLinks";
 import { canEditDestination } from "../utils/permissions";
 
 import type { DestinationFormValues } from "../types/destinationForm";
@@ -42,12 +43,14 @@ const EditDestination = () => {
         // The backend keeps the stored featured value; tags are not edited here.
         featured: destination?.featured ?? false,
         tags: destination?.tags ?? [],
+        // The form always sends the slug field; "" means rebuild it from the title.
+        slug: data.slug ?? "",
       }),
     onSuccess: async (updated) => {
       queryClient.setQueryData(detailKey, updated);
       await queryClient.invalidateQueries({ queryKey: ["destinations"] });
       toast.success("Destination updated successfully");
-      navigate(`/destination/${id}`);
+      navigate(destinationPath(updated));
     },
     onError: (error) => {
       console.error(error);
@@ -106,7 +109,7 @@ const EditDestination = () => {
         />
         <div className="mt-6 text-center">
           <Link
-            to={`/destination/${destination.id}`}
+            to={destinationPath(destination)}
             className="font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-400"
           >
             Back to the destination
@@ -123,6 +126,7 @@ const EditDestination = () => {
     image: destination.image,
     price: destination.price,
     rating: destination.rating,
+    slug: destination.slug,
   };
 
   return (
@@ -146,7 +150,7 @@ const EditDestination = () => {
       </FormCard>
 
       <div className="mt-6">
-        <Button variant="secondary" onClick={() => navigate(`/destination/${id}`)}>
+        <Button variant="secondary" onClick={() => navigate(destinationPath(destination))}>
           Cancel
         </Button>
       </div>

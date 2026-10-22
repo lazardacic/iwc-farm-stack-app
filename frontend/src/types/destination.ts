@@ -1,6 +1,8 @@
 export interface Destination {
   id: string;
   title: string;
+  // URL segment, e.g. "belgrade-at-sunset"; made from the title when created.
+  slug: string;
   country: string;
   description: string;
   price: number;
@@ -45,4 +47,13 @@ export const EMPTY_DESTINATION_FILTERS: DestinationFilters = {
   maxPrice: "",
   minRating: "",
   featured: "all",
+};
+
+// What the API accepts when creating or updating; the server sets id, owner and pinned.
+// On update, leaving slug out keeps it, "" rebuilds it from the title.
+export type DestinationPayload = Omit<
+  Destination,
+  "id" | "slug" | "created_by" | "pinned"
+> & {
+  slug?: string;
 };

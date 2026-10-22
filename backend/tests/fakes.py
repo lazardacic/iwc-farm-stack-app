@@ -6,7 +6,8 @@ from services.image_storage import StoredImage
 class FakeImageStorage:
     """In-memory ImageStorage for tests; never touches disk or Cloudinary."""
 
-    def __init__(self):
+    def __init__(self, name: str = "fake"):
+        self.name = name
         self.files: dict[str, bytes] = {}
         self.deleted: list[str] = []
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -14,13 +14,14 @@ import {
 import { isAuthStatusError } from "../api/axiosClient";
 import {
   deleteDestination,
-  getDestination,
+  getDestinationByKey,
   setDestinationFeatured,
   setDestinationPinned,
 } from "../api/destinationsApi";
 import { useAuth } from "../hooks/useAuth";
 import { getApiErrorMessage } from "../utils/apiError";
 import { formatPrice, formatRating, toParagraphs } from "../utils/formatters";
+import { destinationPath } from "../utils/destinationLinks";
 import { canEditDestination } from "../utils/permissions";
 
 import DestinationImage from "../components/destination/DestinationImage";
@@ -29,14 +30,15 @@ import Modal from "../components/ui/Modal";
 import Skeleton from "../components/ui/Skeleton";
 
 const DestinationDetails = () => {
-  const { id = "" } = useParams();
+  // A slug, or an id from links made before slugs existed.
+  const { key = "" } = useParams();
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
   const [deleteModal, setDeleteModal] = useState(false);
 
-  const detailKey = ["destinations", "detail", id];
+  const detailKey = ["destinations", "detail", key];
 
   const {
     data: destination,
@@ -44,16 +46,23 @@ const DestinationDetails = () => {
     isError,
   } = useQuery({
     queryKey: detailKey,
-    queryFn: () => getDestination(id),
-    enabled: Boolean(id),
+    queryFn: () => getDestinationByKey(key),
+    enabled: Boolean(key),
   });
+
+  // Opened through an old id link: show the readable slug in the address bar.
+  useEffect(() => {
+    if (destination?.slug && key !== destination.slug) {
+      navigate(destinationPath(destination), { replace: true });
+    }
+  }, [destination, key, navigate]);
 
   // Featured (a badge, no limit) and pinned (the home slider, at most 5) are independent.
   const statusMutation = useMutation({
     mutationFn: ({ status, value }: { status: "featured" | "pinned"; value: boolean }) =>
       status === "featured"
-        ? setDestinationFeatured(id, value)
-        : setDestinationPinned(id, value),
+        ? setDestinationFeatured(destination!.id, value)
+        : setDestinationPinned(destination!.id, value),
     onSuccess: (updated, { status, value }) => {
       queryClient.setQueryData(detailKey, updated);
       void queryClient.invalidateQueries({ queryKey: ["destinations"] });
@@ -82,7 +91,7 @@ const DestinationDetails = () => {
 
   const handleDelete = async () => {
     try {
-      await deleteDestination(id);
+      await deleteDestination(destination!.id);
       await queryClient.invalidateQueries({ queryKey: ["destinations"] });
       toast.success("Destination deleted successfully");
       navigate("/");

@@ -24,6 +24,7 @@ vi.mock("../hooks/useAuth", () => ({
 const makeDestination = (overrides: Partial<Destination> = {}): Destination => ({
   id: "1",
   title: "Tokyo Trip",
+  slug: "tokyo-trip",
   country: "Japan",
   description: "A trip to Tokyo with food and culture.",
   price: 1200,

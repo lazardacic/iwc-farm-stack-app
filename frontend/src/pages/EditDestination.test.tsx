@@ -33,6 +33,7 @@ vi.mock("react-hot-toast", () => ({
 const destination: Destination = {
   id: "d1",
   title: "Kyoto in Autumn",
+  slug: "kyoto-in-autumn",
   country: "Japan",
   description: "Temples, red maples and quiet gardens in the morning light.",
   price: 2100,
@@ -87,11 +88,16 @@ describe("EditDestination", () => {
     await waitFor(() =>
       expect(updateDestinationMock).toHaveBeenCalledWith(
         "d1",
-        expect.objectContaining({ title: "Kyoto in Spring", featured: true, tags: ["culture"] }),
+        expect.objectContaining({
+          title: "Kyoto in Spring",
+          featured: true,
+          tags: ["culture"],
+          slug: "kyoto-in-autumn",
+        }),
       ),
     );
     await waitFor(() =>
-      expect(screen.getByTestId("location")).toHaveTextContent("/destination/d1"),
+      expect(screen.getByTestId("location")).toHaveTextContent("/destination/kyoto-in-autumn"),
     );
     expect(toastSuccessMock).toHaveBeenCalledWith("Destination updated successfully");
   });
@@ -116,6 +122,28 @@ describe("EditDestination", () => {
 
     expect(await screen.findByText("You cannot edit this destination")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save Changes" })).not.toBeInTheDocument();
+  });
+
+  it("shows the slug field and sends an edited slug", async () => {
+    signedInAs({ id: "editor-1", email: "editor@example.com", role: "editor" });
+    updateDestinationMock.mockResolvedValue({ ...destination, slug: "kyoto-maples" });
+
+    renderEdit();
+    const slugField = await screen.findByLabelText("Slug");
+    expect(slugField).toHaveValue("kyoto-in-autumn");
+
+    fireEvent.change(slugField, { target: { value: "kyoto-maples" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(updateDestinationMock).toHaveBeenCalledWith(
+        "d1",
+        expect.objectContaining({ slug: "kyoto-maples" }),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent("/destination/kyoto-maples"),
+    );
   });
 
   it("lets an admin edit any destination", async () => {

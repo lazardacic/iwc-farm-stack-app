@@ -4,6 +4,7 @@ import { FiArrowRight, FiMapPin, FiStar } from "react-icons/fi";
 import DestinationImage from "./DestinationImage";
 
 import type { Destination } from "../../types/destination";
+import { destinationPath } from "../../utils/destinationLinks";
 import { formatPrice, formatRating } from "../../utils/formatters";
 
 interface Props {
@@ -13,7 +14,7 @@ interface Props {
 const DestinationCard = ({ destination }: Props) => {
   return (
     <Link
-      to={`/destination/${destination.id}`}
+      to={destinationPath(destination)}
       className="
         group
         flex

@@ -14,6 +14,10 @@ class Destination(BaseModel):
     image: str = ""
     tags: List[str] = []
     featured: bool = False
+    # URL segment such as "belgrade-at-sunset". On create it comes from the title.
+    # On update: not sent keeps the current slug, "" rebuilds it from the title,
+    # any other value is normalized and made unique.
+    slug: Optional[str] = Field(None, max_length=200)
 
     @field_validator("image")
     @classmethod
@@ -33,6 +37,7 @@ class DestinationCreate(Destination):
 
 class DestinationResponse(Destination):
     id: str
+    slug: str = ""
     created_by: Optional[str] = None
     # Shown in the home page slider; independent of "featured".
     pinned: bool = False

@@ -2,19 +2,23 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from services.destination_images import cleanup_orphaned_uploads
+from services.destination_images import cleanup_orphaned_uploads, release_image
+from services.image_storage import ImageStorages
+from tests.fakes import FakeImageStorage
 
 
 DAY = timedelta(hours=24)
 
 
-async def add_upload(upload_collection, image_storage, public_id, age):
+async def add_upload(upload_collection, image_storage, public_id, age, **fields):
     image_storage.files[public_id] = b"image"
     await upload_collection.insert_one({
         "url": f"https://images.test/{public_id}",
         "public_id": public_id,
+        "storage": image_storage.name,
         "uploaded_by": "editor-id",
         "created_at": datetime.now(timezone.utc) - age,
+        **fields,
     })
 
 
@@ -33,7 +37,7 @@ async def test_old_unused_upload_is_deleted(
     await add_upload(upload_collection, image_storage, "old.webp", timedelta(hours=30))
 
     removed = await cleanup_orphaned_uploads(
-        image_storage, upload_collection, destination_collection, DAY
+        ImageStorages(image_storage), upload_collection, destination_collection, DAY
     )
 
     assert removed == 1
@@ -50,7 +54,7 @@ async def test_recent_upload_is_kept_while_the_form_may_still_be_open(
     await add_upload(upload_collection, image_storage, "new.webp", timedelta(hours=2))
 
     removed = await cleanup_orphaned_uploads(
-        image_storage, upload_collection, destination_collection, DAY
+        ImageStorages(image_storage), upload_collection, destination_collection, DAY
     )
 
     assert removed == 0
@@ -76,7 +80,7 @@ async def test_upload_used_by_a_destination_is_kept(
     await destination_collection.insert_one({"title": "Lisbon", **destination})
 
     removed = await cleanup_orphaned_uploads(
-        image_storage, upload_collection, destination_collection, DAY
+        ImageStorages(image_storage), upload_collection, destination_collection, DAY
     )
 
     assert removed == 0
@@ -97,8 +101,72 @@ async def test_failed_storage_delete_keeps_the_record_for_the_next_run(
     await add_upload(upload_collection, image_storage, "old.webp", timedelta(days=2))
 
     removed = await cleanup_orphaned_uploads(
-        image_storage, upload_collection, destination_collection, DAY
+        ImageStorages(image_storage), upload_collection, destination_collection, DAY
     )
 
     assert removed == 0
     assert await remaining(upload_collection) == ["old.webp"]
+
+
+@pytest.mark.asyncio
+async def test_old_local_upload_is_deleted_after_switching_to_cloudinary(
+    upload_collection,
+    destination_collection,
+):
+    local = FakeImageStorage("local")
+    cloudinary = FakeImageStorage("cloudinary")
+    # Recorded before the storage name was saved: a local /media URL.
+    await upload_collection.insert_one({
+        "url": "http://localhost:8080/api/media/old.webp",
+        "public_id": "old.webp",
+        "uploaded_by": "editor-id",
+        "created_at": datetime.now(timezone.utc) - timedelta(days=2),
+    })
+
+    removed = await cleanup_orphaned_uploads(
+        ImageStorages(cloudinary, [local]), upload_collection, destination_collection, DAY
+    )
+
+    assert removed == 1
+    assert local.deleted == ["old.webp"]
+    assert cloudinary.deleted == []
+
+
+@pytest.mark.asyncio
+async def test_upload_in_an_unconfigured_storage_is_kept(
+    upload_collection,
+    destination_collection,
+):
+    cloudinary = FakeImageStorage("cloudinary")
+    await add_upload(upload_collection, cloudinary, "remote.webp", timedelta(days=2))
+
+    removed = await cleanup_orphaned_uploads(
+        ImageStorages(FakeImageStorage("local")),
+        upload_collection,
+        destination_collection,
+        DAY,
+    )
+
+    assert removed == 0
+    assert await remaining(upload_collection) == ["remote.webp"]
+
+
+@pytest.mark.asyncio
+async def test_release_deletes_from_the_storage_that_holds_the_image(
+    upload_collection,
+    destination_collection,
+):
+    local = FakeImageStorage("local")
+    cloudinary = FakeImageStorage("cloudinary")
+    await add_upload(upload_collection, local, "replaced.webp", timedelta(minutes=5))
+
+    await release_image(
+        ImageStorages(cloudinary, [local]),
+        upload_collection,
+        destination_collection,
+        "replaced.webp",
+    )
+
+    assert local.deleted == ["replaced.webp"]
+    assert cloudinary.deleted == []
+    assert await remaining(upload_collection) == []

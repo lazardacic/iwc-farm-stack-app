@@ -20,6 +20,7 @@ vi.mock("../hooks/useAuth", () => ({
 const destination: Destination = {
   id: "d1",
   title: "My Lisbon Guide",
+  slug: "my-lisbon-guide",
   country: "Portugal",
   description: "Trams, tiles and pastel de nata.",
   price: 900,

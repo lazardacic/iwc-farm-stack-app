@@ -24,7 +24,13 @@ def get_upload_collection(request: Request):
 
 
 def get_image_storage(request: Request):
-    return request.app.state.image_storage
+    # Where new uploads go.
+    return request.app.state.image_storages.active
+
+
+def get_image_storages(request: Request):
+    # Every configured storage, for deleting uploads wherever they were saved.
+    return request.app.state.image_storages
 
 
 def get_refresh_token_collection(request: Request):
