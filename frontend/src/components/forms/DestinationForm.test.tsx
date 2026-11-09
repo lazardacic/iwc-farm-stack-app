@@ -4,10 +4,40 @@ import { vi } from "vitest";
 import DestinationForm from "./DestinationForm";
 import type { DestinationFormValues } from "../../types/destinationForm";
 
+// The real editor is tested in RichTextEditor.test.tsx; here a textarea stands in,
+// reporting HTML and plain text the same way.
+vi.mock("./RichTextEditor", () => ({
+  default: ({
+    label,
+    value,
+    error,
+    onChange,
+  }: {
+    label: string;
+    value: string;
+    error?: string;
+    onChange: (html: string, text: string) => void;
+  }) => (
+    <>
+      <label>
+        {label}
+        <textarea
+          defaultValue={value}
+          onChange={(event) =>
+            onChange(event.target.value ? `<p>${event.target.value}</p>` : "", event.target.value)
+          }
+        />
+      </label>
+      {error && <span>{error}</span>}
+    </>
+  ),
+}));
+
 const validValues: DestinationFormValues = {
   title: "Santorini",
   country: "Greece",
   description: "Beautiful island in the Aegean Sea with white houses.",
+  description_html: "<p>Beautiful island in the Aegean Sea with white houses.</p>",
   image: "https://example.com/santorini.jpg",
   price: 1499,
   rating: 4.8,
@@ -129,5 +159,40 @@ describe("DestinationForm", () => {
     render(<DestinationForm mode="edit" loading onSubmit={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Saving..." })).toBeDisabled();
+  });
+});
+
+describe("DestinationForm description", () => {
+  it("submits the editor HTML with the plain text", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(<DestinationForm mode="create" onSubmit={onSubmit} />);
+    fillForm(validValues);
+    fireEvent.click(screen.getByRole("button", { name: "Create Destination" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      description: validValues.description,
+      description_html: `<p>${validValues.description}</p>`,
+    });
+  });
+
+  it("clears the length error while the user keeps typing", async () => {
+    render(<DestinationForm mode="create" onSubmit={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Destination" }));
+    expect(
+      await screen.findByText("Description must contain at least 30 characters"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Description"), {
+      target: { value: "A long enough description of the old town." },
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Description must contain at least 30 characters"),
+      ).not.toBeInTheDocument(),
+    );
   });
 });

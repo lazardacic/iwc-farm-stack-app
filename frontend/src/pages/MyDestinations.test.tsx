@@ -23,6 +23,7 @@ const destination: Destination = {
   slug: "my-lisbon-guide",
   country: "Portugal",
   description: "Trams, tiles and pastel de nata.",
+  description_html: "<p>Trams, tiles and pastel de nata.</p>",
   price: 900,
   rating: 4.6,
   image: "/placeholders/city.svg",

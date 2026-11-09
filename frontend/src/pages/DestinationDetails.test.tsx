@@ -41,6 +41,7 @@ const destination: Destination = {
   slug: "kyoto-in-autumn",
   country: "Japan",
   description: "Temples and red maples.\n\nQuiet gardens in the morning.",
+  description_html: "<p>Temples and red maples.</p><p>Quiet gardens in the morning.</p>",
   price: 2100,
   rating: 4.9,
   image: "/placeholders/mountains.svg",
@@ -192,6 +193,33 @@ describe("DestinationDetails", () => {
     );
     expect(getDestinationByKeyMock).toHaveBeenCalledWith("6a5f8ddbbfc8ad6679852eca");
     expect(getDestinationByKeyMock).toHaveBeenCalledWith("kyoto-in-autumn");
+  });
+
+  it("renders the rich text description and drops unsafe markup", async () => {
+    signedInAs(null);
+    getDestinationByKeyMock.mockResolvedValue({
+      ...destination,
+      description_html:
+        '<h2>Where to stay</h2><ul><li><p>Gion</p></li></ul><img src="x" onerror="alert(1)"><script>alert(1)</script><p onclick="alert(1)">Book early.</p>',
+    });
+
+    const { container } = renderDetails();
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Where to stay" })).toBeInTheDocument();
+    expect(screen.getByText("Gion")).toBeInTheDocument();
+    expect(screen.getByText("Book early.")).not.toHaveAttribute("onclick");
+    expect(container.querySelector("article img[onerror]")).toBeNull();
+    expect(container.querySelector("article script")).toBeNull();
+  });
+
+  it("falls back to plain text paragraphs when there is no HTML", async () => {
+    signedInAs(null);
+    getDestinationByKeyMock.mockResolvedValue({ ...destination, description_html: "" });
+
+    renderDetails();
+
+    expect(await screen.findByText("Temples and red maples.")).toBeInTheDocument();
+    expect(screen.getByText("Quiet gardens in the morning.")).toBeInTheDocument();
   });
 
   it("shows a not found state", async () => {

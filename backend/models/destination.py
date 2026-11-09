@@ -1,13 +1,24 @@
 import re
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import List, Literal, Optional
+
+from utils.rich_text import (
+    MAX_DESCRIPTION_HTML_LENGTH,
+    html_to_text,
+    sanitize_html,
+    text_to_html,
+)
 
 
 class Destination(BaseModel):
     title: str
     country: str
-    description: str
+    # Plain text, used for cards and excerpts. When description_html is sent,
+    # the server derives this from it, so the two always match.
+    description: str = ""
+    # Rich text from the editor, sanitized on the server (see utils/rich_text.py).
+    description_html: str = Field("", max_length=MAX_DESCRIPTION_HTML_LENGTH)
     price: float = Field(..., gt=0)
     rating: float = Field(..., ge=0, le=5)
     # Empty means "assign a placeholder" on create.
@@ -32,7 +43,20 @@ class Destination(BaseModel):
 
 
 class DestinationCreate(Destination):
-    pass
+    @model_validator(mode="after")
+    def build_descriptions(self):
+        # HTML wins when both are sent; a client that sends only plain text
+        # (older clients, the seed, API users) gets paragraphs made for it.
+        if self.description_html.strip():
+            self.description_html = sanitize_html(self.description_html)
+            self.description = html_to_text(self.description_html)
+        else:
+            self.description = self.description.strip()
+            self.description_html = text_to_html(self.description)
+
+        if not self.description:
+            raise ValueError("Description is required")
+        return self
 
 
 class DestinationResponse(Destination):

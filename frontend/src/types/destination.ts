@@ -4,7 +4,10 @@ export interface Destination {
   // URL segment, e.g. "belgrade-at-sunset"; made from the title when created.
   slug: string;
   country: string;
+  // Plain text, derived by the server from description_html.
   description: string;
+  // Sanitized rich text from the editor.
+  description_html: string;
   price: number;
   rating: number;
   image: string;

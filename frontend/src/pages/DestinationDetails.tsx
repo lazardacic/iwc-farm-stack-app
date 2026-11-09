@@ -21,6 +21,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { getApiErrorMessage } from "../utils/apiError";
 import { formatPrice, formatRating, toParagraphs } from "../utils/formatters";
+import { sanitizeDescription } from "../utils/richText";
 import { destinationPath } from "../utils/destinationLinks";
 import { canEditDestination } from "../utils/permissions";
 
@@ -141,7 +142,9 @@ const DestinationDetails = () => {
   }
 
   const canEdit = canEditDestination(user, destination);
-  const paragraphs = toParagraphs(destination.description);
+  const descriptionHtml = destination.description_html
+    ? sanitizeDescription(destination.description_html)
+    : "";
   const actionClasses =
     "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -266,13 +269,21 @@ const DestinationDetails = () => {
         </figure>
 
         <div className="mx-auto mt-12 max-w-3xl">
-          <div className="space-y-6 text-lg leading-8 text-slate-700 dark:text-slate-300">
-            {paragraphs.map((paragraph, index) => (
-              <p key={index} className="whitespace-pre-line">
-                {paragraph}
-              </p>
-            ))}
-          </div>
+          {descriptionHtml ? (
+            <div
+              className="rich-text text-lg leading-8 text-slate-700 dark:text-slate-300 [&_h2]:text-slate-900 [&_h3]:text-slate-900 dark:[&_h2]:text-white dark:[&_h3]:text-white"
+              // Sanitized twice: by the backend allowlist and by DOMPurify above.
+              dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+            />
+          ) : (
+            <div className="space-y-6 text-lg leading-8 text-slate-700 dark:text-slate-300">
+              {toParagraphs(destination.description).map((paragraph, index) => (
+                <p key={index} className="whitespace-pre-line">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          )}
 
           {destination.tags.length > 0 && (
             <ul

@@ -29,6 +29,7 @@ def test_destination_serializer():
         "slug": "",
         "country": "France",
         "description": "A beautiful city",
+        "description_html": "<p>A beautiful city</p>",
         "price": 500,
         "rating": 4.8,
         "image": "paris.jpg",
@@ -62,6 +63,7 @@ def test_destination_serializer_with_empty_values():
         "slug": "",
         "country": "",
         "description": "",
+        "description_html": "",
         "price": 0,
         "rating": 0,
         "image": "",
@@ -80,3 +82,22 @@ def test_destination_serializer_missing_field():
 
     with pytest.raises(KeyError):
         destination_serializer(destination)
+
+
+def test_serializer_keeps_stored_rich_text():
+    destination = {
+        "_id": ObjectId(),
+        "title": "Paris",
+        "country": "France",
+        "description": "Old plain text",
+        "description_html": "<h2>Paris</h2><p>Stored rich text</p>",
+        "price": 500,
+        "rating": 4.8,
+        "image": "paris.jpg",
+        "tags": [],
+        "featured": False,
+    }
+
+    result = destination_serializer(destination)
+
+    assert result["description_html"] == "<h2>Paris</h2><p>Stored rich text</p>"

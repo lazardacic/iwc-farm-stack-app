@@ -123,6 +123,7 @@ const EditDestination = () => {
     title: destination.title,
     country: destination.country,
     description: destination.description,
+    description_html: destination.description_html,
     image: destination.image,
     price: destination.price,
     rating: destination.rating,

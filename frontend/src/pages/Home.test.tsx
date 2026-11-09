@@ -27,6 +27,7 @@ const makeDestination = (overrides: Partial<Destination> = {}): Destination => (
   slug: "tokyo-trip",
   country: "Japan",
   description: "A trip to Tokyo with food and culture.",
+  description_html: "<p>A trip to Tokyo with food and culture.</p>",
   price: 1200,
   rating: 4.8,
   image: "https://example.com/tokyo.jpg",

@@ -7,6 +7,7 @@ from bson.errors import InvalidId
 from pymongo.errors import DuplicateKeyError
 
 from models.destination import DestinationFilters, DestinationSort
+from utils.rich_text import text_to_html
 from utils.slug import slugify
 
 
@@ -24,6 +25,9 @@ def destination_serializer(destination) -> dict:
         "slug": destination.get("slug", ""),
         "country": destination["country"],
         "description": destination["description"],
+        # Destinations saved before rich text have only plain text.
+        "description_html": destination.get("description_html")
+        or text_to_html(destination["description"]),
         "price": destination["price"],
         "rating": destination["rating"],
         "image": destination["image"],

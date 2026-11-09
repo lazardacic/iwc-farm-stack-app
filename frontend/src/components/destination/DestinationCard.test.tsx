@@ -10,6 +10,7 @@ const destination: Destination = {
   slug: "santorini-sunsets",
   country: "Greece",
   description: "White houses above the Aegean Sea.",
+  description_html: "<p>White houses above the Aegean Sea.</p>",
   price: 2399,
   rating: 4.8,
   image: "/placeholders/beach.svg",

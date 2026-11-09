@@ -46,9 +46,9 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 
 ## Tech stack
 
-**Frontend** — React, TypeScript, Vite, React Router, Axios, TanStack Query, Zustand, React Hook Form, Zod, Tailwind CSS, Headless UI, React Hot Toast, clsx, React Icons, Vitest, Testing Library
+**Frontend** — React, TypeScript, Vite, React Router, Axios, TanStack Query, Zustand, React Hook Form, Zod, TipTap, DOMPurify, Tailwind CSS, Headless UI, React Hot Toast, clsx, React Icons, Vitest, Testing Library
 
-**Backend** — Python 3.14, FastAPI, Uvicorn, Motor, Pydantic, PyJWT, Argon2, Pillow, Cloudinary SDK, python-dotenv, pytest
+**Backend** — Python 3.14, FastAPI, Uvicorn, Motor, Pydantic, PyJWT, Argon2, Pillow, Cloudinary SDK, nh3, python-dotenv, pytest
 
 **Database and tooling** — MongoDB 7, Docker, Docker Compose, Nginx, GitHub Actions
 
@@ -85,6 +85,7 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - "My destinations" page for editors and admins, listing only what they published
 - Readable destination links such as `/destination/belgrade-at-sunset`, made from the title (Serbian Latin and Cyrillic letters are transliterated); old id links still work
 - Destination pages laid out like a blog post: large image, readable text column and a trip details panel
+- Rich text descriptions with a TipTap editor (bold, italic, two heading levels, lists, quotes); the backend keeps only those tags, with no attributes, and stores a plain-text copy for cards
 - Inter and Plus Jakarta Sans fonts, bundled with the app
 - Code splitting by route: the home page ships in the main bundle, and every other page loads the first time it is opened
 - Admin user management: list and search users, change roles (admin-only on the backend)
@@ -380,7 +381,8 @@ A destination is one self contained document. No joins, no transformation layer 
 | `_id` | ObjectId | generated, serialized as a string in responses |
 | `title` | string | yes |
 | `country` | string | yes |
-| `description` | string | yes |
+| `description` | string | plain text; derived from `description_html` when that is sent, otherwise required |
+| `description_html` | string (HTML) | sanitized rich text: `p br strong em h2 h3 ul ol li blockquote`, no attributes; built from `description` when only plain text is sent, and for older destinations when read |
 | `image` | string: `http(s)` URL or relative path | no; empty gets a placeholder |
 | `price` | number (greater than 0) | yes |
 | `rating` | number (0 to 5) | yes |
@@ -521,7 +523,7 @@ Stop with `docker compose -f docker-compose.prod.yml down`; add `-v` to also del
 
 Ordered by value:
 
-1. **Reviews or favorites** — a second resource linked to users and destinations.
+1. **Favorites, then reviews** — a second resource linked to users and destinations; reviews compute the rating.
 2. **More backend failure cases** — invalid ids, missing documents, malformed payloads, and unavailable MongoDB.
 3. **Hosting** — deploy the Docker stack to a server with HTTPS and push images from CI.
 

@@ -7,7 +7,10 @@ export const destinationSchema = z.object({
 
   description: z
     .string()
+    .trim()
     .min(30, "Description must contain at least 30 characters"),
+
+  description_html: z.string(),
 
   // Empty lets the backend assign a placeholder; relative paths cover bundled placeholders.
   image: z

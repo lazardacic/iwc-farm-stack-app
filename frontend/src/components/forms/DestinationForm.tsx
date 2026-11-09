@@ -7,9 +7,9 @@ import type { DestinationFormValues } from "../../types/destinationForm";
 import { destinationSchema } from "../../validation/destinationSchema";
 
 import Input from "../ui/Input";
-import Textarea from "../ui/Textarea";
 import Button from "../ui/Button";
 import ImageInput from "./ImageInput";
+import RichTextEditor from "./RichTextEditor";
 
 interface DestinationFormProps {
   mode: "create" | "edit";
@@ -31,8 +31,9 @@ const DestinationForm = ({
   const {
     control,
     register,
+    setValue,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitted },
   } = useForm<DestinationFormValues>({
     resolver: zodResolver(destinationSchema),
 
@@ -40,6 +41,7 @@ const DestinationForm = ({
       title: "",
       country: "",
       description: "",
+      description_html: "",
       image: "",
       price: 0,
       rating: 0,
@@ -122,11 +124,22 @@ const DestinationForm = ({
         })}
       />
 
-      <Textarea
-        label="Description"
-        placeholder="Describe this destination..."
-        error={errors.description?.message}
-        {...register("description")}
+      <Controller
+        name="description_html"
+        control={control}
+        render={({ field }) => (
+          <RichTextEditor
+            label="Description"
+            value={field.value}
+            error={errors.description?.message}
+            onChange={(html, text) => {
+              field.onChange(html);
+              // Validation runs on the plain text; after a failed submit it
+              // re-checks on every change so the error clears while typing.
+              setValue("description", text, { shouldValidate: isSubmitted });
+            }}
+          />
+        )}
       />
 
       <Button

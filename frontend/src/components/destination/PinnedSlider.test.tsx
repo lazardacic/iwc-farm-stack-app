@@ -17,6 +17,7 @@ const makeDestination = (id: string, title: string, featured = false): Destinati
   slug: title.toLowerCase().replace(/ /g, "-"),
   country: "Japan",
   description: "A featured destination.",
+  description_html: "<p>A featured destination.</p>",
   price: 1450,
   rating: 4.75,
   image: "/placeholders/city.svg",

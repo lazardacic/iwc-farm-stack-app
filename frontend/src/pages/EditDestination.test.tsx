@@ -36,6 +36,7 @@ const destination: Destination = {
   slug: "kyoto-in-autumn",
   country: "Japan",
   description: "Temples, red maples and quiet gardens in the morning light.",
+  description_html: "<p>Temples, red maples and quiet gardens in the morning light.</p>",
   price: 2100,
   rating: 4.9,
   image: "/placeholders/mountains.svg",
@@ -90,6 +91,7 @@ describe("EditDestination", () => {
         "d1",
         expect.objectContaining({
           title: "Kyoto in Spring",
+          description_html: "<p>Temples, red maples and quiet gardens in the morning light.</p>",
           featured: true,
           tags: ["culture"],
           slug: "kyoto-in-autumn",
