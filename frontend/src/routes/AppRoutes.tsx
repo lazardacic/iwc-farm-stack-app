@@ -1,20 +1,26 @@
+import { lazy } from "react";
 import { Routes, Route } from "react-router-dom";
 
 import GuestRoute from "../components/auth/GuestRoute";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import MainLayout from "../components/layout/MainLayout";
 
-import AdminUsers from "../pages/AdminUsers";
 import Home from "../pages/Home";
-import DestinationDetails from "../pages/DestinationDetails";
-import CreateDestination from "../pages/CreateDestination";
-import EditDestination from "../pages/EditDestination";
-import Login from "../pages/Login";
-import MyDestinations from "../pages/MyDestinations";
-import NotFound from "../pages/NotFound";
-import Register from "../pages/Register";
-import Welcome from "../pages/Welcome";
 import { PUBLISHER_ROLES } from "../utils/permissions";
+
+// Home is the landing page, so it ships in the main bundle. Every other page
+// is a separate chunk that the browser downloads the first time it is opened.
+// MainLayout wraps the outlet in <Suspense>, so the navbar stays visible while
+// a chunk loads.
+const AdminUsers = lazy(() => import("../pages/AdminUsers"));
+const CreateDestination = lazy(() => import("../pages/CreateDestination"));
+const DestinationDetails = lazy(() => import("../pages/DestinationDetails"));
+const EditDestination = lazy(() => import("../pages/EditDestination"));
+const Login = lazy(() => import("../pages/Login"));
+const MyDestinations = lazy(() => import("../pages/MyDestinations"));
+const NotFound = lazy(() => import("../pages/NotFound"));
+const Register = lazy(() => import("../pages/Register"));
+const Welcome = lazy(() => import("../pages/Welcome"));
 
 const AppRoutes = () => {
   return (

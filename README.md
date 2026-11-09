@@ -86,6 +86,7 @@ React (Vite)  ──[Axios / JSON]──▶  FastAPI  ──[Motor]──▶  Mo
 - Readable destination links such as `/destination/belgrade-at-sunset`, made from the title (Serbian Latin and Cyrillic letters are transliterated); old id links still work
 - Destination pages laid out like a blog post: large image, readable text column and a trip details panel
 - Inter and Plus Jakarta Sans fonts, bundled with the app
+- Code splitting by route: the home page ships in the main bundle, and every other page loads the first time it is opened
 - Admin user management: list and search users, change roles (admin-only on the backend)
 - Light and dark theme with a persisted preference
 - Skeleton loaders, empty states, and error states
